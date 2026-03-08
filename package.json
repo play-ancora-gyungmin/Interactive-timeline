@@ -1,5 +1,5 @@
 {
-  "name": "Interactive-timeline",
+  "name": "interactive-timeline",
   "private": true,
   "scripts": {
     "build": "turbo run build",
