@@ -1,14 +1,101 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
+  runtime  = "nodejs"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id              String         @id @default(uuid()) @db.Uuid
+  name            String
+  email           String         @unique
+  emailVerified   Boolean        @default(false)
+  image           String?
+  role            String?        @default("user")
+  banned          Boolean?       @default(false)
+  banReason       String?
+  banExpires      DateTime?      @db.Timestamptz(6)
+  createdAt       DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @db.Timestamptz(6)
+  accounts        Account[]
+  sessions        Session[]
+  journalEntries  JournalEntry[]
+
+  @@map("users")
+}
+
+model Account {
+  id                    String    @id @default(uuid()) @db.Uuid
+  accountId             String
+  providerId            String
+  userId                String    @db.Uuid
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(6)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(6)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId], map: "accounts_provider_account_unique")
+  @@index([userId], map: "accounts_user_id_idx")
+  @@map("accounts")
+}
+
+model Session {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  token          String    @unique
+  expiresAt      DateTime  @db.Timestamptz(6)
+  ipAddress      String?
+  userAgent      String?
+  impersonatedBy String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "sessions_user_id_idx")
+  @@map("sessions")
+}
+
+model Verification {
+  id         String   @id @default(uuid()) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([identifier, createdAt], map: "verifications_identifier_created_at_idx")
+  @@index([expiresAt], map: "verifications_expires_at_idx")
+  @@map("verifications")
+}
+
+model JournalEntry {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  entryDate      DateTime @map("entry_date") @db.Date
+  mood           String
+  note           String
+  spotifyTrackId String   @map("spotify_track_id")
+  trackName      String   @map("track_name")
+  artistNames    String[] @map("artist_names")
+  albumName      String   @map("album_name")
+  albumImageUrl  String?  @map("album_image_url")
+  spotifyUrl     String   @map("spotify_url")
+  previewUrl     String?  @map("preview_url")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entryDate], map: "journal_entries_user_date_unique")
+  @@index([userId, entryDate], map: "journal_entries_user_date_idx")
+  @@index([userId, spotifyTrackId], map: "journal_entries_user_track_idx")
+  @@map("journal_entries")
 }
