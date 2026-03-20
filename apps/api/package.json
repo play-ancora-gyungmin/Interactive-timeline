@@ -8,9 +8,16 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "dev": "tsx watch src/app.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/app.js",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src --max-warnings 0",
+    "prisma:validate": "prisma validate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "prisma db seed",
+    "prisma:studio": "prisma studio",
+    "start": "node dist/server.js",
     "format": "prettier --write .",
     "prepare": "husky"
   },
@@ -66,5 +73,8 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.50.1"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

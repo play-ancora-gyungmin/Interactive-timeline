@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from '../generated/prisma/client.js';
-import { PrismaPg } from '@prisma/adapter-pg'; // Assuming this is the correct import path
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import { config, isDevelopment } from './env.config.js';
 
 const getPrismaLogLevel = () => {
@@ -10,18 +11,25 @@ const getPrismaLogLevel = () => {
   return ['query', 'info', 'warn', 'error'] as Prisma.LogLevel[];
 };
 
-const adapter = new PrismaPg({
-  connectionString: config.DATABASE_URL,
-});
+export function createPrismaClient(connectionString: string) {
+  const pool = new Pool({ connectionString });
+  const adapter = new PrismaPg(pool);
+  const prisma = new PrismaClient({
+    adapter,
+    log: getPrismaLogLevel(),
+  });
 
-export const prisma = new PrismaClient({
-  adapter,
-  log: getPrismaLogLevel(),
-});
+  return { prisma, pool };
+}
+
+const database = createPrismaClient(config.DATABASE_URL);
+
+export const prisma = database.prisma;
 
 export async function disconnectDB(): Promise<void> {
   try {
     await prisma.$disconnect();
+    await database.pool.end();
     console.log('📦 Disconnected from the database.');
   } catch (e) {
     console.error('❌ Error disconnecting from the database:', e);
