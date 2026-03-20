@@ -154,6 +154,10 @@ export class DefaultJournalService implements JournalService {
       nextEntryDate,
     );
 
+    if (!updated) {
+      throw new NotFoundException('Journal not found');
+    }
+
     return createDetail(updated);
   }
 

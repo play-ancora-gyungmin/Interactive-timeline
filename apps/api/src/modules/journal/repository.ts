@@ -15,7 +15,7 @@ export interface JournalRepository {
     userId: string,
     input: UpdateJournalInput,
     entryDate?: Date,
-  ): Promise<JournalEntity>;
+  ): Promise<JournalEntity | null>;
   delete(journalId: string, userId: string): Promise<boolean>;
 }
 
@@ -133,23 +133,37 @@ export class PrismaJournalRepository implements JournalRepository {
 
   async update(
     journalId: string,
-    _userId: string,
+    userId: string,
     input: UpdateJournalInput,
     entryDate?: Date,
-  ): Promise<JournalEntity> {
-    const updated = await this.prisma.journalEntry.update({
-      where: {
-        id: journalId,
-      },
-      data: {
-        ...(entryDate ? { entryDate } : {}),
-        ...(input.mood ? { mood: input.mood } : {}),
-        ...(input.note ? { note: input.note } : {}),
-        ...mapTrackUpdateInput(input),
-      },
-    });
+  ): Promise<JournalEntity | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.journalEntry.updateMany({
+        where: {
+          id: journalId,
+          userId,
+        },
+        data: {
+          ...(entryDate ? { entryDate } : {}),
+          ...(input.mood ? { mood: input.mood } : {}),
+          ...(input.note ? { note: input.note } : {}),
+          ...mapTrackUpdateInput(input),
+        },
+      });
 
-    return mapJournalEntity(updated);
+      if (updated.count === 0) {
+        return null;
+      }
+
+      const entry = await tx.journalEntry.findFirst({
+        where: {
+          id: journalId,
+          userId,
+        },
+      });
+
+      return entry ? mapJournalEntity(entry) : null;
+    });
   }
 
   async delete(journalId: string, userId: string): Promise<boolean> {

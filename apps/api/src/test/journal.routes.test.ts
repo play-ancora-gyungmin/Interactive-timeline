@@ -97,13 +97,15 @@ class InMemoryJournalRepository implements JournalRepository {
 
   async update(
     journalId: string,
-    _userId: string,
+    userId: string,
     input: UpdateJournalInput,
     entryDate?: Date,
-  ): Promise<JournalEntity> {
-    const index = this.entries.findIndex((entry) => entry.id === journalId);
+  ): Promise<JournalEntity | null> {
+    const index = this.entries.findIndex(
+      (entry) => entry.id === journalId && entry.userId === userId,
+    );
     if (index === -1) {
-      throw new Error('Journal not found');
+      return null;
     }
 
     const current = this.entries[index];
@@ -311,6 +313,29 @@ describe('journal routes', () => {
     expect(detailResponse.status).toBe(404);
   });
 
+  it('returns 404 when another user tries to update a journal', async () => {
+    const createResponse = await request(app)
+      .post('/api/journals')
+      .set('x-test-user-id', TEST_USER_ID)
+      .send(createJournalPayload('2026-03-20'));
+
+    const updateResponse = await request(app)
+      .patch(`/api/journals/${createResponse.body.data.id}`)
+      .set('x-test-user-id', OTHER_USER_ID)
+      .send({
+        mood: 'happy',
+      });
+
+    expect(updateResponse.status).toBe(404);
+
+    const detailResponse = await request(app)
+      .get(`/api/journals/${createResponse.body.data.id}`)
+      .set('x-test-user-id', TEST_USER_ID);
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body.data.mood).toBe('calm');
+  });
+
   it('updates and deletes a journal', async () => {
     const createResponse = await request(app)
       .post('/api/journals')
@@ -361,6 +386,25 @@ describe('journal routes', () => {
       });
 
     expect(conflictResponse.status).toBe(409);
+  });
+
+  it('returns 404 when another user tries to delete a journal', async () => {
+    const createResponse = await request(app)
+      .post('/api/journals')
+      .set('x-test-user-id', TEST_USER_ID)
+      .send(createJournalPayload('2026-03-20'));
+
+    const deleteResponse = await request(app)
+      .delete(`/api/journals/${createResponse.body.data.id}`)
+      .set('x-test-user-id', OTHER_USER_ID);
+
+    expect(deleteResponse.status).toBe(404);
+
+    const detailResponse = await request(app)
+      .get(`/api/journals/${createResponse.body.data.id}`)
+      .set('x-test-user-id', TEST_USER_ID);
+
+    expect(detailResponse.status).toBe(200);
   });
 
   it('keeps entryDate stable through create and read', async () => {
