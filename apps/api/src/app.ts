@@ -1,16 +1,14 @@
 import express from 'express';
 import cors, { CorsOptions } from 'cors';
-import { router } from './routes/index.js';
+import { toNodeHandler } from 'better-auth/node';
+import type { AppDependencies } from './composition/createAppDependencies.js';
 import { logger } from './middlewares/logger.js';
 import { requestTimer } from './middlewares/requestTimer.js';
 import { config, isDevelopment, isProduction } from './config/env.config.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
-export function createApp() {
+export function createApp(dependencies: AppDependencies) {
   const app = express();
-
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
 
   const whiteList: string[] = config.FRONT_URL
     ? config.FRONT_URL.split(',').map((url) => url.trim())
@@ -28,14 +26,19 @@ export function createApp() {
     app.use(requestTimer);
   }
 
+  app.all('/api/auth/*splat', toNodeHandler(dependencies.auth));
+
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
   app.get('/', (_req, res) => {
     res.json({
       name: 'Daily Music Journal API',
-      endpoints: ['/api/health'],
+      endpoints: ['/api/auth/*', '/api/health', '/api/journals'],
     });
   });
 
-  app.use('/api', router);
+  app.use('/api', dependencies.apiRouter);
   app.use(errorHandler);
 
   return app;

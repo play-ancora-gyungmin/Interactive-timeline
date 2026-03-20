@@ -1,15 +1,24 @@
 export class HttpException extends Error {
-  statusCode;
-  constructor(descriprion: string, statusCode: number) {
-    super(descriprion);
+  statusCode: number;
+  errors: Array<{ path?: string; message: string; location?: string }>;
+
+  constructor(
+    description: string,
+    statusCode: number,
+    errors: Array<{ path?: string; message: string; location?: string }> = [],
+  ) {
+    super(description);
     this.name = this.constructor.name;
     this.statusCode = statusCode;
+    this.errors = errors;
   }
 }
 
 export class BadRequestException extends HttpException {
-  errors: never[];
-  constructor(description = 'BAD_REQUEST', errors = []) {
+  constructor(
+    description = 'BAD_REQUEST',
+    errors: Array<{ path?: string; message: string; location?: string }> = [],
+  ) {
     super(description, 400);
     this.errors = errors;
   }

@@ -1,8 +1,10 @@
 import { createApp } from './app.js';
+import { createAppDependencies } from './composition/createAppDependencies.js';
 import { disconnectDB } from './config/db.config.js';
 import { config } from './config/env.config.js';
 
-const app = createApp();
+const dependencies = createAppDependencies();
+const app = createApp(dependencies);
 
 const server = app.listen(config.PORT, () => {
   console.log(`🚀 Server running on http://localhost:${config.PORT}`);

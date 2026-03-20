@@ -1,9 +1,17 @@
 import express from 'express';
 
-export const router = express.Router();
+interface ApiRouterDependencies {
+  journalRouter: express.Router;
+}
 
-router.get('/health', (_req, res) => {
-  res.json({ ok: true });
-});
+export function createApiRouter({ journalRouter }: ApiRouterDependencies) {
+  const router = express.Router();
 
-export default router;
+  router.get('/health', (_req, res) => {
+    res.json({ ok: true });
+  });
+
+  router.use('/journals', journalRouter);
+
+  return router;
+}

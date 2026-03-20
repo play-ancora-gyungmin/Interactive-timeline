@@ -1,6 +1,8 @@
 import { z } from 'zod';
-import { BadRequestException } from '../err/httpException.js';
 import { RequestHandler } from 'express';
+import { BadRequestException } from '../err/httpException.js';
+
+type ValidationTarget = 'body' | 'query' | 'params';
 
 /**
  * @param {z.ZodSchema<any>} schema 검사할 Zod 스키마
@@ -10,16 +12,19 @@ import { RequestHandler } from 'express';
 export const validate =
   (
     schema: z.ZodSchema,
-    type: 'body' | 'query' | 'params' = 'body',
+    type: ValidationTarget = 'body',
   ): RequestHandler =>
-  async (req, res, next) => {
+  async (req, _res, next) => {
     try {
       const dataToValidate = req[type] || {};
-      await schema.parseAsync(dataToValidate);
+      const parsed = await schema.parseAsync(dataToValidate);
+      req.validated = {
+        ...req.validated,
+        [type]: parsed,
+      };
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.log('error.issues', error.issues);
         const formattedErrors = error.issues.map((err) => ({
           path: err.path.join('.'),
           message: err.message,
