@@ -2,10 +2,10 @@ import express from 'express';
 import cors, { CorsOptions } from 'cors';
 import { toNodeHandler } from 'better-auth/node';
 import type { AppDependencies } from './composition/createAppDependencies.js';
-import { logger } from './middlewares/logger.js';
-import { requestTimer } from './middlewares/requestTimer.js';
+import { logger } from './middlewares/logger.middleware.js';
+import { requestTimer } from './middlewares/request-timer.middleware.js';
 import { config, isDevelopment, isProduction } from './config/env.config.js';
-import { errorHandler } from './middlewares/errorHandler.js';
+import { errorHandler } from './middlewares/error-handler.middleware.js';
 
 export function createApp(dependencies: AppDependencies) {
   const app = express();

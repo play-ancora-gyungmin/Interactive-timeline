@@ -3,7 +3,7 @@ import request from 'supertest';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { createApp } from '../app.js';
 import type { AppDependencies } from '../composition/createAppDependencies.js';
-import { createRequireSession } from '../modules/auth/requireSession.js';
+import { createRequireSession } from '../modules/auth/require-session.middleware.js';
 import { createJournalRouter } from '../modules/journal/router.js';
 import type { JournalRepository } from '../modules/journal/repository.js';
 import { DefaultJournalService } from '../modules/journal/service.js';

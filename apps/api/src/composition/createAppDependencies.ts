@@ -7,7 +7,7 @@ import {
 import {
   createRequireSession,
   type RequireSession,
-} from '../modules/auth/requireSession.js';
+} from '../modules/auth/require-session.middleware.js';
 import {
   PrismaJournalRepository,
   type JournalRepository,

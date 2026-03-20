@@ -1,6 +1,6 @@
 import express from 'express';
-import { validate } from '../../middlewares/validate.js';
-import type { RequireSession } from '../auth/requireSession.js';
+import { validate } from '../../middlewares/validate.middleware.js';
+import type { RequireSession } from '../auth/require-session.middleware.js';
 import {
   createJournalSchema,
   journalIdParamsSchema,
