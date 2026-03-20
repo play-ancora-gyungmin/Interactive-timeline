@@ -1,8 +1,8 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { admin } from 'better-auth/plugins';
-import type { PrismaClient } from '../generated/prisma/client.js';
-import { config } from '../config/env.config.js';
+import type { PrismaClient } from '../../generated/prisma/client.js';
+import { config } from '../../config/env.config.js';
 
 const FALLBACK_SPOTIFY_USER_NAME = 'Spotify User';
 

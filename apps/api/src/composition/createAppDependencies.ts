@@ -1,13 +1,13 @@
 import { prisma } from '../config/db.config.js';
-import { createAuth, type AuthInstance } from '../auth/auth.js';
+import { createAuth, type AuthInstance } from '../modules/auth/auth.js';
 import {
   BetterAuthSessionReader,
   type SessionReader,
-} from '../auth/session-reader.js';
+} from '../modules/auth/session-reader.js';
 import {
   createRequireSession,
   type RequireSession,
-} from '../middlewares/requireSession.js';
+} from '../modules/auth/requireSession.js';
 import {
   PrismaJournalRepository,
   type JournalRepository,
@@ -17,7 +17,7 @@ import {
   type JournalService,
 } from '../modules/journal/service.js';
 import { createJournalRouter } from '../modules/journal/router.js';
-import { createApiRouter } from '../routes/index.js';
+import { createApiRouter } from '../modules/router.js';
 
 export interface AppDependencies {
   auth: AuthInstance;

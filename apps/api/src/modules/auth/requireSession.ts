@@ -1,9 +1,6 @@
 import type { RequestHandler } from 'express';
-import { UnauthorizedException } from '../err/httpException.js';
-import {
-  getHeadersFromRequest,
-  type SessionReader,
-} from '../auth/session-reader.js';
+import { UnauthorizedException } from '../../err/httpException.js';
+import { getHeadersFromRequest, type SessionReader } from './session-reader.js';
 
 export type RequireSession = RequestHandler;
 

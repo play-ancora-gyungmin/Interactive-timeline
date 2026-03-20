@@ -1,4 +1,4 @@
-import type { AuthSession } from '../auth/session-reader.js';
+import type { AuthSession } from './session-reader.js';
 
 declare global {
   namespace Express {

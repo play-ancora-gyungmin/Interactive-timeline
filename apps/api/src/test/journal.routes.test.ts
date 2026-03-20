@@ -3,7 +3,7 @@ import request from 'supertest';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { createApp } from '../app.js';
 import type { AppDependencies } from '../composition/createAppDependencies.js';
-import { createRequireSession } from '../middlewares/requireSession.js';
+import { createRequireSession } from '../modules/auth/requireSession.js';
 import { createJournalRouter } from '../modules/journal/router.js';
 import type { JournalRepository } from '../modules/journal/repository.js';
 import { DefaultJournalService } from '../modules/journal/service.js';
@@ -12,7 +12,7 @@ import type {
   JournalEntity,
   UpdateJournalInput,
 } from '../modules/journal/types.js';
-import { createApiRouter } from '../routes/index.js';
+import { createApiRouter } from '../modules/router.js';
 
 const TEST_USER_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_USER_ID = '22222222-2222-4222-8222-222222222222';
