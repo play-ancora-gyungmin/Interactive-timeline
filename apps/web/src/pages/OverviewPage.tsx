@@ -10,9 +10,30 @@ import { useHealthQuery, useRecentEntriesQuery } from '../hooks/useJournalQuerie
 import styles from './OverviewPage.module.css'
 
 export function OverviewPage() {
-  const { appMode, isSessionPending, userName, onSignIn } = useAppLayoutContext()
+  const {
+    appMode,
+    isSessionPending,
+    userName,
+    spotifyAuthAvailability,
+    onSignIn,
+  } = useAppLayoutContext()
   const healthQuery = useHealthQuery()
   const recentEntriesQuery = useRecentEntriesQuery(appMode === 'authenticated')
+  const canStartSpotifySignIn = spotifyAuthAvailability === 'enabled'
+  const healthStatusLabel = healthQuery.isPending
+    ? '백엔드 응답 확인 중'
+    : healthQuery.data?.ok
+      ? healthQuery.data.auth.spotifyEnabled
+        ? '실서버와 Spotify 인증 준비됨'
+        : '실서버 응답은 정상, 인증 설정 필요'
+      : 'API 확인 필요'
+  const healthStatusCopy = healthQuery.isPending
+    ? '앱 진입 시 헬스체크를 먼저 확인합니다.'
+    : healthQuery.data?.ok
+      ? healthQuery.data.auth.spotifyEnabled
+        ? '저널 목록, Spotify 검색, 로그인에 필요한 기본 연결이 살아 있습니다.'
+        : 'API는 응답하지만 Spotify 로그인 provider는 아직 비활성화되어 있습니다.'
+      : '게스트 데모는 쓸 수 있지만 실제 데이터 연결은 점검이 필요합니다.'
 
   const recentEntries =
     appMode === 'authenticated'
@@ -39,8 +60,14 @@ export function OverviewPage() {
               </>
             ) : (
               <>
-                <ActionButton variant="primary" onClick={onSignIn}>
-                  Spotify 연결하기
+                <ActionButton
+                  disabled={!canStartSpotifySignIn}
+                  variant="primary"
+                  onClick={onSignIn}
+                >
+                  {spotifyAuthAvailability === 'checking'
+                    ? 'Spotify 상태 확인 중'
+                    : 'Spotify 연결하기'}
                 </ActionButton>
                 <ActionButton to={routePaths.library}>데모 라이브러리 보기</ActionButton>
               </>
@@ -61,26 +88,18 @@ export function OverviewPage() {
             <p className={styles.statusCopy}>
               {appMode === 'authenticated'
                 ? '기록 작성, 수정, 삭제와 Spotify 검색까지 모두 사용할 수 있습니다.'
-                : '인증이 없어도 홈과 라이브러리 데모 경험은 확인할 수 있습니다.'}
+                : spotifyAuthAvailability === 'disabled'
+                  ? '서버에 Spotify 로그인 설정이 아직 없어 현재는 게스트 탐색만 가능합니다.'
+                  : spotifyAuthAvailability === 'unknown'
+                    ? '로그인 구성을 확인하지 못했습니다. 우선 게스트 탐색만 사용할 수 있습니다.'
+                    : '인증이 없어도 홈과 라이브러리 데모 경험은 확인할 수 있습니다.'}
             </p>
           </Surface>
 
           <Surface className={styles.statusCard} tone="muted">
             <span className={styles.statusLabel}>API 상태</span>
-            <strong className={styles.statusValue}>
-              {healthQuery.isPending
-                ? '백엔드 응답 확인 중'
-                : healthQuery.data
-                  ? '실서버 응답 준비됨'
-                  : 'API 확인 필요'}
-            </strong>
-            <p className={styles.statusCopy}>
-              {healthQuery.isPending
-                ? '앱 진입 시 헬스체크를 먼저 확인합니다.'
-                : healthQuery.data
-                  ? '저널 목록과 Spotify 검색에 필요한 기본 연결이 살아 있습니다.'
-                  : '게스트 데모는 쓸 수 있지만 실제 데이터 연결은 점검이 필요합니다.'}
-            </p>
+            <strong className={styles.statusValue}>{healthStatusLabel}</strong>
+            <p className={styles.statusCopy}>{healthStatusCopy}</p>
           </Surface>
         </div>
       </div>

@@ -5,33 +5,72 @@ import {
   Outlet,
   Route,
   Routes,
+  useLocation,
   useNavigate,
 } from 'react-router-dom'
 import { AppShell } from '../components/layout/AppShell'
+import { useHealthQuery } from '../hooks/useJournalQueries'
 import { authClient } from '../lib/auth-client'
+import {
+  buildAuthReturnCallbackURL,
+  getPostSignInRedirectTarget,
+  resolveSpotifyAuthAvailability,
+} from '../lib/auth-flow'
+import { AuthReturnPage } from '../pages/AuthReturnPage'
 import { CapturePage } from '../pages/CapturePage'
 import { LibraryPage } from '../pages/LibraryPage'
 import { OverviewPage } from '../pages/OverviewPage'
 import type { AppMode } from './layout-context'
-import { routePaths } from './routes'
+import { internalRoutePaths, routePaths } from './routes'
 
 function AppLayout() {
+  const location = useLocation()
   const navigate = useNavigate()
-  const { data: session, isPending: isSessionPending } = authClient.useSession()
+  const {
+    data: session,
+    isPending: isSessionPending,
+  } = authClient.useSession()
+  const healthQuery = useHealthQuery()
   const [authFeedback, setAuthFeedback] = useState<string | null>(null)
 
   const appMode: AppMode = session?.user ? 'authenticated' : 'guest'
+  const spotifyAuthAvailability = resolveSpotifyAuthAvailability({
+    health: healthQuery.data,
+    isPending: healthQuery.isPending,
+    hasError: Boolean(healthQuery.error),
+  })
 
   const handleSignIn = () => {
     setAuthFeedback(null)
 
+    if (spotifyAuthAvailability === 'checking') {
+      setAuthFeedback('Spotify 로그인 준비 상태를 확인하는 중입니다. 잠시만 기다려 주세요.')
+      return
+    }
+
+    if (spotifyAuthAvailability === 'disabled') {
+      setAuthFeedback('서버에 Spotify 로그인 설정이 아직 없습니다.')
+      return
+    }
+
+    if (spotifyAuthAvailability === 'unknown') {
+      setAuthFeedback('로그인 구성을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      return
+    }
+
+    const nextPath = getPostSignInRedirectTarget(
+      location.pathname,
+      location.search,
+      location.hash,
+    )
+
     void authClient
       .signIn.social({
         provider: 'spotify',
-        callbackURL: window.location.href,
+        callbackURL: buildAuthReturnCallbackURL(nextPath),
       })
       .catch(() => {
-        setAuthFeedback('Spotify 로그인 구성을 확인한 뒤 다시 시도해 주세요.')
+        setAuthFeedback('Spotify 로그인 시작에 실패했습니다. 잠시 후 다시 시도해 주세요.')
       })
   }
 
@@ -53,6 +92,7 @@ function AppLayout() {
       appMode={appMode}
       isSessionPending={isSessionPending}
       userName={session?.user?.name ?? null}
+      spotifyAuthAvailability={spotifyAuthAvailability}
       authFeedback={authFeedback}
       onSignIn={handleSignIn}
       onSignOut={handleSignOut}
@@ -62,6 +102,7 @@ function AppLayout() {
           appMode,
           isSessionPending,
           userName: session?.user?.name ?? null,
+          spotifyAuthAvailability,
           onSignIn: handleSignIn,
         }}
       />
@@ -77,6 +118,7 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path={internalRoutePaths.authReturn} element={<AuthReturnPage />} />
         <Route element={<AppLayout />}>
           <Route path={routePaths.overview} element={<OverviewPage />} />
           <Route path={routePaths.capture} element={<CapturePage />} />

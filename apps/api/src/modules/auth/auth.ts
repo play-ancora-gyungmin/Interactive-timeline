@@ -6,6 +6,9 @@ import { config } from '../../config/env.config.js';
 
 const FALLBACK_SPOTIFY_USER_NAME = 'Spotify User';
 
+const hasConfiguredValue = (value: string | undefined) =>
+  typeof value === 'string' && value.trim().length > 0;
+
 interface SpotifyProfileLike {
   display_name?: string | null;
   email?: string | null;
@@ -23,6 +26,10 @@ const getSpotifyScopes = () =>
   config.SPOTIFY_AUTH_SCOPES.split(',')
     .map((scope) => scope.trim())
     .filter(Boolean);
+
+export const isSpotifyAuthEnabled = () =>
+  hasConfiguredValue(config.SPOTIFY_CLIENT_ID) &&
+  hasConfiguredValue(config.SPOTIFY_CLIENT_SECRET);
 
 const resolveSpotifyUserName = (profile: SpotifyProfileLike) => {
   const displayName =
@@ -55,13 +62,16 @@ const resolveSpotifyUserImage = (profile: SpotifyProfileLike) => {
 };
 
 const getSpotifyProvider = () => {
-  if (!config.SPOTIFY_CLIENT_ID || !config.SPOTIFY_CLIENT_SECRET) {
+  const clientId = config.SPOTIFY_CLIENT_ID?.trim();
+  const clientSecret = config.SPOTIFY_CLIENT_SECRET?.trim();
+
+  if (!clientId || !clientSecret || !isSpotifyAuthEnabled()) {
     return undefined;
   }
 
   return {
-    clientId: config.SPOTIFY_CLIENT_ID,
-    clientSecret: config.SPOTIFY_CLIENT_SECRET,
+    clientId,
+    clientSecret,
     redirectURI: `${config.BETTER_AUTH_URL}/api/auth/callback/spotify`,
     scopes: getSpotifyScopes(),
     mapProfileToUser: async (profile: SpotifyProfileLike) => {

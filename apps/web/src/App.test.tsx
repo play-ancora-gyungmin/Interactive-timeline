@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -7,6 +7,9 @@ import { server } from './test/server'
 const authState = vi.hoisted(() => ({
   sessionData: null as { user: { id: string; name: string } } | null,
   isPending: false,
+  isRefetching: false,
+  error: null as Error | null,
+  refetch: vi.fn().mockResolvedValue(undefined),
   signInSocial: vi.fn().mockResolvedValue(undefined),
   signOut: vi.fn().mockResolvedValue(undefined),
 }))
@@ -16,6 +19,9 @@ vi.mock('./lib/auth-client', () => ({
     useSession: () => ({
       data: authState.sessionData,
       isPending: authState.isPending,
+      isRefetching: authState.isRefetching,
+      error: authState.error,
+      refetch: authState.refetch,
     }),
     signIn: {
       social: authState.signInSocial,
@@ -61,12 +67,20 @@ function renderAt(pathname: string) {
 beforeEach(() => {
   authState.sessionData = null
   authState.isPending = false
+  authState.isRefetching = false
+  authState.error = null
+  authState.refetch.mockClear()
   authState.signInSocial.mockClear()
   authState.signOut.mockClear()
 
   server.use(
     http.get('http://localhost:4000/api/health', () =>
-      HttpResponse.json({ ok: true }),
+      HttpResponse.json({
+        ok: true,
+        auth: {
+          spotifyEnabled: true,
+        },
+      }),
     ),
   )
 })
@@ -78,6 +92,30 @@ describe('web app', () => {
     expect((await screen.findAllByText('게스트 모드')).length).toBeGreaterThan(0)
     expect(screen.getByText('로그인 없이 둘러보는 샘플 기록')).toBeTruthy()
     expect(screen.getByText('Sunrise Cassette')).toBeTruthy()
+  })
+
+  it('disables Spotify login when the server auth provider is unavailable', async () => {
+    server.use(
+      http.get('http://localhost:4000/api/health', () =>
+        HttpResponse.json({
+          ok: true,
+          auth: {
+            spotifyEnabled: false,
+          },
+        }),
+      ),
+    )
+
+    renderAt('/')
+
+    const buttons = await screen.findAllByRole('button', { name: 'Spotify로 로그인' })
+
+    expect(buttons.length).toBeGreaterThan(0)
+    for (const button of buttons) {
+      expect((button as HTMLButtonElement).disabled).toBe(true)
+    }
+
+    expect(screen.getByText(/서버에 Spotify 로그인 설정이 아직 없습니다/)).toBeTruthy()
   })
 
   it('renders guest library as read-only sample feed', async () => {
@@ -94,6 +132,22 @@ describe('web app', () => {
       ).length,
     ).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: '수정' })).toBeNull()
+  })
+
+  it('starts Spotify sign-in with an auth return callback that preserves the current location', async () => {
+    renderAt('/library?entry=demo-sunrise-cassette')
+
+    const buttons = await screen.findAllByRole('button', { name: 'Spotify로 로그인' })
+    await waitFor(() => {
+      expect((buttons[0] as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    fireEvent.click(buttons[0])
+
+    expect(authState.signInSocial).toHaveBeenCalledWith({
+      provider: 'spotify',
+      callbackURL: `${window.location.origin}/auth/return?next=%2Flibrary%3Fentry%3Ddemo-sunrise-cassette`,
+    })
   })
 
   it('allows authenticated users to search and save a journal entry', async () => {
@@ -219,5 +273,38 @@ describe('web app', () => {
     fireEvent.click(await screen.findByRole('button', { name: '삭제하기' }))
 
     expect(await screen.findByText('기록을 삭제했습니다.')).toBeTruthy()
+  })
+
+  it('returns to the requested screen after auth when a session is already available', async () => {
+    authState.sessionData = {
+      user: {
+        id: 'user-1',
+        name: '테스트 사용자',
+      },
+    }
+
+    renderAt('/auth/return?next=%2Fcapture')
+
+    expect(await screen.findByText('Spotify 인증이 완료되었습니다')).toBeTruthy()
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/capture')
+    })
+  })
+
+  it('shows a failure state when auth return cannot confirm the session', async () => {
+    vi.useFakeTimers()
+
+    try {
+      renderAt('/auth/return?next=%2Fcapture')
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(6_000)
+      })
+
+      expect(screen.getByText('세션 확인에 실패했습니다')).toBeTruthy()
+      expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

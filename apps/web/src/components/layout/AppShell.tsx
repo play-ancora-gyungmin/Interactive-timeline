@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { navItems, routePaths } from '../../app/routes'
 import type { AppMode } from '../../app/layout-context'
 import { formatTodayLabel } from '../../lib/format'
+import type { SpotifyAuthAvailability } from '../../lib/auth-flow'
 import { ActionButton } from '../ui/ActionButton'
 import { Notice } from '../ui/Notice'
 import styles from './AppShell.module.css'
@@ -12,6 +13,7 @@ type AppShellProps = {
   appMode: AppMode
   isSessionPending: boolean
   userName: string | null
+  spotifyAuthAvailability: SpotifyAuthAvailability
   authFeedback: string | null
   onSignIn: () => void
   onSignOut: () => void
@@ -22,10 +24,15 @@ export function AppShell({
   appMode,
   isSessionPending,
   userName,
+  spotifyAuthAvailability,
   authFeedback,
   onSignIn,
   onSignOut,
 }: AppShellProps) {
+  const canStartSpotifySignIn = spotifyAuthAvailability === 'enabled'
+  const loginButtonLabel =
+    spotifyAuthAvailability === 'checking' ? 'Spotify 상태 확인 중' : 'Spotify로 로그인'
+
   return (
     <div className={styles.shell}>
       <div className={styles.inner}>
@@ -55,14 +62,29 @@ export function AppShell({
                 </ActionButton>
               </>
             ) : (
-              <ActionButton variant="primary" onClick={onSignIn}>
-                Spotify로 로그인
+              <ActionButton
+                disabled={!canStartSpotifySignIn}
+                variant="primary"
+                onClick={onSignIn}
+              >
+                {loginButtonLabel}
               </ActionButton>
             )}
           </div>
         </header>
 
         {authFeedback ? <Notice tone="error">{authFeedback}</Notice> : null}
+        {!userName && spotifyAuthAvailability === 'disabled' ? (
+          <Notice tone="subtle">
+            서버에 Spotify 로그인 설정이 아직 없습니다. 지금은 게스트 모드로 홈과 라이브러리만
+            확인할 수 있습니다.
+          </Notice>
+        ) : null}
+        {!userName && spotifyAuthAvailability === 'unknown' ? (
+          <Notice tone="error">
+            로그인 구성을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.
+          </Notice>
+        ) : null}
 
         <nav aria-label="주요 탐색" className={styles.desktopNav}>
           {navItems.map((item) => (

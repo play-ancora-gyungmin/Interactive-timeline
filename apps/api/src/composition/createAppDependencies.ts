@@ -1,5 +1,9 @@
 import { prisma } from '../config/db.config.js';
-import { createAuth, type AuthInstance } from '../modules/auth/auth.js';
+import {
+  createAuth,
+  isSpotifyAuthEnabled,
+  type AuthInstance,
+} from '../modules/auth/auth.js';
 import {
   BetterAuthSessionReader,
   type SessionReader,
@@ -63,6 +67,7 @@ export function createAppDependencies(): AppDependencies {
   const apiRouter = createApiRouter({
     journalRouter,
     spotifyRouter,
+    spotifyAuthEnabled: isSpotifyAuthEnabled(),
   });
 
   return {

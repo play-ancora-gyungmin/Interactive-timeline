@@ -42,7 +42,7 @@ function getLibraryErrorMessage(error: unknown, fallbackMessage: string) {
 }
 
 export function LibraryPage() {
-  const { appMode, onSignIn } = useAppLayoutContext()
+  const { appMode, onSignIn, spotifyAuthAvailability } = useAppLayoutContext()
   const [searchParams, setSearchParams] = useSearchParams()
   const libraryEntriesQuery = useLibraryEntriesQuery(appMode === 'authenticated')
   const updateMutation = useUpdateJournalEntryMutation()
@@ -67,6 +67,7 @@ export function LibraryPage() {
     Boolean(selectedEntryId)
 
   const selectedPreview = entries.find((entry) => entry.id === selectedEntryId) ?? null
+  const selectedDemoDetail = selectedEntryId ? getDemoJournalDetail(selectedEntryId) : null
   const detailQuery = useJournalDetailQuery(
     selectedEntryId,
     appMode === 'authenticated' && Boolean(selectedEntryId),
@@ -77,9 +78,9 @@ export function LibraryPage() {
       ? detailQuery.data
         ? toJournalCardModel(detailQuery.data, 'live')
         : selectedPreview
-      : selectedEntryId
-        ? toJournalCardModel(getDemoJournalDetail(selectedEntryId) ?? selectedPreview!, 'demo')
-        : null
+      : selectedDemoDetail
+        ? toJournalCardModel(selectedDemoDetail, 'demo')
+        : selectedPreview
 
   const updateSelectedEntry = (nextEntryId: string | null, mode?: 'edit') => {
     const next = new URLSearchParams(searchParams)
@@ -126,6 +127,9 @@ export function LibraryPage() {
     appMode === 'authenticated' && detailQuery.error
       ? getLibraryErrorMessage(detailQuery.error, '상세 기록을 불러오지 못했습니다.')
       : null
+  const canStartSpotifySignIn = spotifyAuthAvailability === 'enabled'
+  const signInLabel =
+    spotifyAuthAvailability === 'checking' ? 'Spotify 상태 확인 중' : 'Spotify 연결하기'
 
   return (
     <div className={styles.page}>
@@ -138,10 +142,24 @@ export function LibraryPage() {
         </p>
         {appMode === 'guest' ? (
           <div className={styles.ctaRow}>
-            <ActionButton variant="primary" onClick={onSignIn}>
-              Spotify 연결하기
+            <ActionButton
+              disabled={!canStartSpotifySignIn}
+              variant="primary"
+              onClick={onSignIn}
+            >
+              {signInLabel}
             </ActionButton>
           </div>
+        ) : null}
+        {appMode === 'guest' && spotifyAuthAvailability === 'disabled' ? (
+          <Notice tone="subtle">
+            서버에 Spotify 로그인 설정이 아직 없어 지금은 샘플 기록만 읽을 수 있습니다.
+          </Notice>
+        ) : null}
+        {appMode === 'guest' && spotifyAuthAvailability === 'unknown' ? (
+          <Notice tone="error">
+            로그인 구성을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.
+          </Notice>
         ) : null}
       </Surface>
 

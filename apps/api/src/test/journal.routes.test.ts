@@ -252,7 +252,11 @@ const spotifyTracks: SpotifyTrackSnapshot[] = [
   },
 ];
 
-const createTestDependencies = () => {
+const createTestDependencies = ({
+  spotifyAuthEnabled = true,
+}: {
+  spotifyAuthEnabled?: boolean;
+} = {}) => {
   const journalRepository = new InMemoryJournalRepository();
   const spotifyGateway = new FakeSpotifyGateway(spotifyTracks);
   const spotifyService: SpotifyService = new DefaultSpotifyService(spotifyGateway);
@@ -272,6 +276,7 @@ const createTestDependencies = () => {
   const apiRouter = createApiRouter({
     journalRouter,
     spotifyRouter,
+    spotifyAuthEnabled,
   });
 
   return {
@@ -537,6 +542,25 @@ describe('journal routes', () => {
     const response = await request(app).get('/api/health');
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ ok: true });
+    expect(response.body).toEqual({
+      ok: true,
+      auth: {
+        spotifyEnabled: true,
+      },
+    });
+  });
+
+  it('reports spotify auth as disabled when the provider is unavailable', async () => {
+    const disabledApp = createApp(createTestDependencies({ spotifyAuthEnabled: false }));
+
+    const response = await request(disabledApp).get('/api/health');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      ok: true,
+      auth: {
+        spotifyEnabled: false,
+      },
+    });
   });
 });

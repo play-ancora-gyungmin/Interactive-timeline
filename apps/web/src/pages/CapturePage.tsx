@@ -33,7 +33,7 @@ function getCaptureErrorMessage(error: unknown, fallbackMessage: string) {
 }
 
 export function CapturePage() {
-  const { appMode, onSignIn } = useAppLayoutContext()
+  const { appMode, onSignIn, spotifyAuthAvailability } = useAppLayoutContext()
   const createJournalMutation = useCreateJournalEntryMutation()
   const [selectedMood, setSelectedMood] = useState<Mood>(DEFAULT_MOOD)
   const [note, setNote] = useState('')
@@ -97,23 +97,52 @@ export function CapturePage() {
     createJournalMutation.error instanceof ApiClientError || createJournalMutation.error
       ? getCaptureErrorMessage(createJournalMutation.error, '기록을 저장하지 못했습니다.')
       : null
+  const canStartSpotifySignIn = spotifyAuthAvailability === 'enabled'
+  const signInLabel =
+    spotifyAuthAvailability === 'checking' ? 'Spotify 상태 확인 중' : 'Spotify로 로그인'
 
   if (appMode === 'guest') {
+    const guestEyebrow =
+      spotifyAuthAvailability === 'disabled'
+        ? '서버 설정 필요'
+        : spotifyAuthAvailability === 'unknown'
+          ? '연결 확인 필요'
+          : '로그인 필요'
+    const guestTitle =
+      spotifyAuthAvailability === 'disabled'
+        ? 'Spotify 로그인이 아직 준비되지 않았습니다'
+        : spotifyAuthAvailability === 'unknown'
+          ? '로그인 구성을 아직 확인하지 못했습니다'
+          : '게스트 모드에서는 기록 작성 대신 샘플 탐색만 가능합니다'
+    const guestCopy =
+      spotifyAuthAvailability === 'disabled'
+        ? '서버에 Spotify 로그인 설정이 아직 없어 실제 검색과 저장을 열 수 없습니다. 지금은 홈과 라이브러리 데모만 확인할 수 있습니다.'
+        : spotifyAuthAvailability === 'unknown'
+          ? '현재는 로그인 설정 확인이 끝나지 않아 기록 작성을 열 수 없습니다. 잠시 뒤 다시 시도하거나 데모 라이브러리를 먼저 둘러보세요.'
+          : '실제 Spotify 검색과 저장은 인증 사용자 세션 기준으로만 동작합니다. 먼저 홈이나 라이브러리에서 데모 흐름을 둘러보고, 준비되면 Spotify 로그인으로 전환하세요.'
+
     return (
       <div className={styles.page}>
         <Surface className={styles.guestHero} tone="hero">
-          <span className={styles.sectionEyebrow}>로그인 필요</span>
-          <h1 className={styles.sectionTitle}>게스트 모드에서는 기록 작성 대신 샘플 탐색만 가능합니다</h1>
-          <p className={styles.sectionCopy}>
-            실제 Spotify 검색과 저장은 인증 사용자 세션 기준으로만 동작합니다. 먼저 홈이나
-            라이브러리에서 데모 흐름을 둘러보고, 준비되면 Spotify 로그인으로 전환하세요.
-          </p>
+          <span className={styles.sectionEyebrow}>{guestEyebrow}</span>
+          <h1 className={styles.sectionTitle}>{guestTitle}</h1>
+          <p className={styles.sectionCopy}>{guestCopy}</p>
           <div className={styles.ctaRow}>
-            <ActionButton variant="primary" onClick={onSignIn}>
-              Spotify로 로그인
+            <ActionButton
+              disabled={!canStartSpotifySignIn}
+              variant="primary"
+              onClick={onSignIn}
+            >
+              {signInLabel}
             </ActionButton>
             <ActionButton to={routePaths.library}>샘플 라이브러리 보기</ActionButton>
           </div>
+          {spotifyAuthAvailability === 'disabled' ? (
+            <Notice tone="subtle">서버에 Spotify 로그인 설정이 아직 없습니다.</Notice>
+          ) : null}
+          {spotifyAuthAvailability === 'unknown' ? (
+            <Notice tone="error">로그인 구성을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.</Notice>
+          ) : null}
         </Surface>
       </div>
     )

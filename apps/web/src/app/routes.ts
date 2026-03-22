@@ -4,6 +4,10 @@ export const routePaths = {
   library: '/library',
 } as const
 
+export const internalRoutePaths = {
+  authReturn: '/auth/return',
+} as const
+
 export type AppRoute = (typeof routePaths)[keyof typeof routePaths]
 
 export const navItems: Array<{ path: AppRoute; label: string; description: string }> = [

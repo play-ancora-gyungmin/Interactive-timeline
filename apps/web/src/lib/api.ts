@@ -52,6 +52,13 @@ type ApiJournalListResult = {
   }
 }
 
+export type HealthResponse = {
+  ok: boolean
+  auth: {
+    spotifyEnabled: boolean
+  }
+}
+
 export class ApiClientError extends Error {
   status: number
   errors: ApiErrorResponse['errors']
@@ -138,10 +145,6 @@ const apiFetch = async <T>(path: string, init: RequestInit = {}) => {
   return (payload as ApiResponse<T>).data
 }
 
-type HealthResponse = {
-  ok: boolean
-}
-
 export async function fetchApiHealth(signal?: AbortSignal) {
   const response = await fetch(`${getApiBaseUrl()}/health`, {
     credentials: 'include',
@@ -154,7 +157,7 @@ export async function fetchApiHealth(signal?: AbortSignal) {
 
   const payload = (await response.json()) as HealthResponse
 
-  return payload.ok === true
+  return payload
 }
 
 export async function searchSpotifyTracks(query: string, signal?: AbortSignal) {
