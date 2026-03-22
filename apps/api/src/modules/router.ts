@@ -2,9 +2,13 @@ import express from 'express';
 
 interface ApiRouterDependencies {
   journalRouter: express.Router;
+  spotifyRouter: express.Router;
 }
 
-export function createApiRouter({ journalRouter }: ApiRouterDependencies) {
+export function createApiRouter({
+  journalRouter,
+  spotifyRouter,
+}: ApiRouterDependencies) {
   const router = express.Router();
 
   router.get('/health', (_req, res) => {
@@ -12,6 +16,7 @@ export function createApiRouter({ journalRouter }: ApiRouterDependencies) {
   });
 
   router.use('/journals', journalRouter);
+  router.use('/spotify', spotifyRouter);
 
   return router;
 }

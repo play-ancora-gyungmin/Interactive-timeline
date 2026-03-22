@@ -12,6 +12,10 @@ import type {
   JournalEntity,
   UpdateJournalInput,
 } from '../modules/journal/types.js';
+import { createSpotifyRouter } from '../modules/spotify/router.js';
+import type { SpotifyGateway, SpotifyService } from '../modules/spotify/service.js';
+import { DefaultSpotifyService } from '../modules/spotify/service.js';
+import type { SpotifyTrackSnapshot } from '../modules/spotify/types.js';
 import { createApiRouter } from '../modules/router.js';
 
 const TEST_USER_ID = '11111111-1111-4111-8111-111111111111';
@@ -26,6 +30,7 @@ class InMemoryJournalRepository implements JournalRepository {
     userId: string,
     input: CreateJournalInput,
     entryDate: Date,
+    track: SpotifyTrackSnapshot,
   ): Promise<JournalEntity> {
     const now = new Date();
     const entity: JournalEntity = {
@@ -34,13 +39,13 @@ class InMemoryJournalRepository implements JournalRepository {
       entryDate,
       mood: input.mood,
       note: input.note,
-      spotifyTrackId: input.track.spotifyTrackId,
-      trackName: input.track.trackName,
-      artistNames: input.track.artistNames,
-      albumName: input.track.albumName,
-      albumImageUrl: input.track.albumImageUrl ?? null,
-      spotifyUrl: input.track.spotifyUrl,
-      previewUrl: input.track.previewUrl ?? null,
+      spotifyTrackId: track.spotifyTrackId,
+      trackName: track.trackName,
+      artistNames: track.artistNames,
+      albumName: track.albumName,
+      albumImageUrl: track.albumImageUrl ?? null,
+      spotifyUrl: track.spotifyUrl,
+      previewUrl: track.previewUrl ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -100,6 +105,7 @@ class InMemoryJournalRepository implements JournalRepository {
     userId: string,
     input: UpdateJournalInput,
     entryDate?: Date,
+    track?: SpotifyTrackSnapshot,
   ): Promise<JournalEntity | null> {
     const index = this.entries.findIndex(
       (entry) => entry.id === journalId && entry.userId === userId,
@@ -114,13 +120,13 @@ class InMemoryJournalRepository implements JournalRepository {
       entryDate: entryDate ?? current.entryDate,
       mood: input.mood ?? current.mood,
       note: input.note ?? current.note,
-      spotifyTrackId: input.track?.spotifyTrackId ?? current.spotifyTrackId,
-      trackName: input.track?.trackName ?? current.trackName,
-      artistNames: input.track?.artistNames ?? current.artistNames,
-      albumName: input.track?.albumName ?? current.albumName,
-      albumImageUrl: input.track?.albumImageUrl ?? current.albumImageUrl,
-      spotifyUrl: input.track?.spotifyUrl ?? current.spotifyUrl,
-      previewUrl: input.track?.previewUrl ?? current.previewUrl,
+      spotifyTrackId: track?.spotifyTrackId ?? current.spotifyTrackId,
+      trackName: track?.trackName ?? current.trackName,
+      artistNames: track?.artistNames ?? current.artistNames,
+      albumName: track?.albumName ?? current.albumName,
+      albumImageUrl: track?.albumImageUrl ?? current.albumImageUrl,
+      spotifyUrl: track?.spotifyUrl ?? current.spotifyUrl,
+      previewUrl: track?.previewUrl ?? current.previewUrl,
       updatedAt: new Date(),
     };
 
@@ -171,22 +177,105 @@ const createAuthStub = () =>
     },
   }) as unknown as AppDependencies['auth'];
 
+class FakeSpotifyGateway implements SpotifyGateway {
+  constructor(private readonly tracks: SpotifyTrackSnapshot[]) {}
+
+  async searchTracks(query: string, limit: number): Promise<SpotifyTrackSnapshot[]> {
+    const keyword = query.trim().toLowerCase();
+
+    return this.tracks
+      .filter((track) => {
+        const artists = track.artistNames.join(' ').toLowerCase();
+
+        return (
+          track.trackName.toLowerCase().includes(keyword) ||
+          artists.includes(keyword) ||
+          track.albumName.toLowerCase().includes(keyword)
+        );
+      })
+      .slice(0, limit);
+  }
+
+  async getTrackById(trackId: string): Promise<SpotifyTrackSnapshot | null> {
+    return (
+      this.tracks.find((track) => track.spotifyTrackId === trackId) ?? null
+    );
+  }
+
+  async getTracksByIds(
+    trackIds: string[],
+  ): Promise<Map<string, SpotifyTrackSnapshot>> {
+    const trackIdSet = new Set(trackIds);
+    const result = new Map<string, SpotifyTrackSnapshot>();
+
+    for (const track of this.tracks) {
+      if (trackIdSet.has(track.spotifyTrackId)) {
+        result.set(track.spotifyTrackId, track);
+      }
+    }
+
+    return result;
+  }
+}
+
+const spotifyTracks: SpotifyTrackSnapshot[] = [
+  {
+    spotifyTrackId: 'track-2026-03-20',
+    trackName: 'Track 2026-03-20',
+    artistNames: ['Artist'],
+    albumName: 'Album',
+    albumImageUrl: 'https://example.com/cover.jpg',
+    spotifyUrl: 'https://open.spotify.com/track/test-2026-03-20',
+    previewUrl: 'https://p.scdn.co/test-2026-03-20.mp3',
+  },
+  {
+    spotifyTrackId: 'track-2026-03-21',
+    trackName: 'Track 2026-03-21',
+    artistNames: ['Artist'],
+    albumName: 'Album',
+    albumImageUrl: 'https://example.com/cover.jpg',
+    spotifyUrl: 'https://open.spotify.com/track/test-2026-03-21',
+    previewUrl: 'https://p.scdn.co/test-2026-03-21.mp3',
+  },
+  {
+    spotifyTrackId: 'track-2026-03-22',
+    trackName: 'Track 2026-03-22',
+    artistNames: ['Artist'],
+    albumName: 'Album',
+    albumImageUrl: 'https://example.com/cover.jpg',
+    spotifyUrl: 'https://open.spotify.com/track/test-2026-03-22',
+    previewUrl: 'https://p.scdn.co/test-2026-03-22.mp3',
+  },
+];
+
 const createTestDependencies = () => {
   const journalRepository = new InMemoryJournalRepository();
-  const journalService = new DefaultJournalService(journalRepository);
+  const spotifyGateway = new FakeSpotifyGateway(spotifyTracks);
+  const spotifyService: SpotifyService = new DefaultSpotifyService(spotifyGateway);
+  const journalService = new DefaultJournalService(
+    journalRepository,
+    spotifyService,
+  );
   const requireSession = createRequireSession(createSessionReader());
   const journalRouter = createJournalRouter({
     journalService,
     requireSession,
   });
+  const spotifyRouter = createSpotifyRouter({
+    spotifyService,
+    requireSession,
+  });
   const apiRouter = createApiRouter({
     journalRouter,
+    spotifyRouter,
   });
 
   return {
     auth: createAuthStub(),
     sessionReader: createSessionReader(),
     requireSession,
+    spotifyGateway,
+    spotifyService,
     journalRepository,
     journalService,
     apiRouter,
@@ -197,15 +286,7 @@ const createJournalPayload = (entryDate: string): CreateJournalInput => ({
   entryDate,
   mood: 'calm',
   note: `note-${entryDate}`,
-  track: {
-    spotifyTrackId: `track-${entryDate}`,
-    trackName: `Track ${entryDate}`,
-    artistNames: ['Artist'],
-    albumName: 'Album',
-    albumImageUrl: 'https://example.com/cover.jpg',
-    spotifyUrl: 'https://open.spotify.com/track/test',
-    previewUrl: 'https://p.scdn.co/test.mp3',
-  },
+  spotifyTrackId: `track-${entryDate}`,
 });
 
 describe('journal routes', () => {
@@ -237,9 +318,7 @@ describe('journal routes', () => {
 
     expect(createResponse.status).toBe(201);
     expect(createResponse.body.data.entryDate).toBe('2026-03-20');
-    expect(createResponse.body.data.track.spotifyTrackId).toBe(
-      payload.track.spotifyTrackId,
-    );
+    expect(createResponse.body.data.track.spotifyTrackId).toBe(payload.spotifyTrackId);
 
     const detailResponse = await request(app)
       .get(`/api/journals/${createResponse.body.data.id}`)
@@ -282,6 +361,7 @@ describe('journal routes', () => {
 
     expect(firstPage.status).toBe(200);
     expect(firstPage.body.data.items).toHaveLength(2);
+    expect(firstPage.body.data.items[0].track.spotifyTrackId).toBe('track-2026-03-22');
     expect(firstPage.body.data.pageInfo).toEqual({
       nextCursor: '2026-03-21',
       hasMore: true,
@@ -311,6 +391,16 @@ describe('journal routes', () => {
       .set('x-test-user-id', OTHER_USER_ID);
 
     expect(detailResponse.status).toBe(404);
+  });
+
+  it('searches spotify tracks for authenticated users', async () => {
+    const response = await request(app)
+      .get('/api/spotify/tracks/search?query=2026-03-20&limit=5')
+      .set('x-test-user-id', TEST_USER_ID);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0].spotifyTrackId).toBe('track-2026-03-20');
   });
 
   it('returns 404 when another user tries to update a journal', async () => {

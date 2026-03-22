@@ -1,63 +1,158 @@
-import { useState } from 'react'
-import { moodLabels, sampleEntries, type Mood, type TrackSummary } from '../lib/sample-data'
+import { useDeferredValue, useEffect, useState } from 'react'
+import {
+  ApiClientError,
+  createJournalEntry,
+  searchSpotifyTracks,
+} from '../lib/api'
+import { moodLabels, type Mood, type TrackSummary } from '../lib/journal'
 
 type TodayEntryPageProps = {
+  isAuthenticated: boolean
   onBrowseHistory: () => void
+  onSignIn: () => void
 }
 
-const trackCatalog: TrackSummary[] = [
-  ...sampleEntries.map((entry) => entry.track),
-  {
-    spotifyTrackId: 'track-5',
-    name: 'Glass Harbor',
-    artists: ['Navy Orchard'],
-    albumName: 'Slow Signal',
-    albumImageUrl: null,
-    spotifyUrl: 'https://open.spotify.com',
-    previewUrl: null,
-  },
-]
+const getTodayEntryDate = () =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+  }).format(new Date())
 
-export function TodayEntryPage({ onBrowseHistory }: TodayEntryPageProps) {
+export function TodayEntryPage({
+  isAuthenticated,
+  onBrowseHistory,
+  onSignIn,
+}: TodayEntryPageProps) {
   const [selectedMood, setSelectedMood] = useState<Mood>('focused')
   const [note, setNote] = useState('')
   const [query, setQuery] = useState('')
-  const [selectedTrack, setSelectedTrack] = useState<TrackSummary | null>(trackCatalog[0])
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [selectedTrack, setSelectedTrack] = useState<TrackSummary | null>(null)
+  const [tracks, setTracks] = useState<TrackSummary[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const deferredQuery = useDeferredValue(query.trim())
 
-  const visibleTracks = trackCatalog.filter((track) => {
-    if (!query.trim()) {
-      return true
-    }
-
-    const keyword = query.trim().toLowerCase()
-    const artistNames = track.artists.join(' ').toLowerCase()
-
-    return (
-      track.name.toLowerCase().includes(keyword) ||
-      artistNames.includes(keyword) ||
-      track.albumName.toLowerCase().includes(keyword)
-    )
-  })
-
-  const isReadyToSave = note.trim().length > 0 && selectedTrack !== null
-
-  const handleSave = () => {
-    if (!isReadyToSave) {
+  useEffect(() => {
+    if (!isAuthenticated || deferredQuery.length < 2) {
       return
     }
 
-    setLastSavedAt(new Date().toLocaleTimeString('ko-KR'))
+    const controller = new AbortController()
+    setIsSearching(true)
+    setSearchError(null)
+
+    searchSpotifyTracks(deferredQuery, controller.signal)
+      .then((results) => {
+        setTracks(results)
+        setSelectedTrack((current) => {
+          if (!current) {
+            return results[0] ?? null
+          }
+
+          return (
+            results.find((track) => track.spotifyTrackId === current.spotifyTrackId) ??
+            current
+          )
+        })
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        if (error instanceof ApiClientError && error.status === 401) {
+          setSearchError('로그인이 필요합니다.')
+          return
+        }
+
+        setSearchError('Spotify 검색 결과를 불러오지 못했습니다.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsSearching(false)
+        }
+      })
+
+    return () => {
+      controller.abort()
+    }
+  }, [deferredQuery, isAuthenticated])
+
+  const visibleTracks = isAuthenticated && deferredQuery.length >= 2 ? tracks : []
+  const visibleSearchError =
+    isAuthenticated && deferredQuery.length >= 2 ? searchError : null
+
+  const isReadyToSave = note.trim().length > 0 && selectedTrack !== null && !isSaving
+
+  const handleSave = async () => {
+    if (!isReadyToSave || !selectedTrack) {
+      return
+    }
+
+    setIsSaving(true)
+    setSaveError(null)
+    setSaveMessage(null)
+
+    try {
+      const savedEntry = await createJournalEntry({
+        entryDate: getTodayEntryDate(),
+        mood: selectedMood,
+        note: note.trim(),
+        spotifyTrackId: selectedTrack.spotifyTrackId,
+      })
+
+      setSaveMessage(
+        `${savedEntry.entryDate} 기록을 저장했습니다. 히스토리에서 바로 확인할 수 있습니다.`,
+      )
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        if (error.status === 401) {
+          setSaveError('로그인이 필요합니다.')
+        } else if (error.status === 409) {
+          setSaveError('오늘 날짜의 기록이 이미 있습니다. 수정 흐름을 먼저 붙여야 합니다.')
+        } else {
+          setSaveError(error.message)
+        }
+      } else {
+        setSaveError('저장을 완료하지 못했습니다.')
+      }
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="page">
+        <section className="panel panel--highlight">
+          <span className="eyebrow">Login required</span>
+          <h1 className="section-title">Spotify 로그인 후 오늘의 곡을 기록할 수 있습니다</h1>
+          <p className="section-copy">
+            트랙 검색과 저널 저장은 모두 로그인한 사용자 세션 기준으로 동작합니다.
+          </p>
+          <div className="cta-row">
+            <button type="button" className="button button--primary" onClick={onSignIn}>
+              Spotify로 로그인
+            </button>
+            <button type="button" className="button button--secondary" onClick={onBrowseHistory}>
+              히스토리 보기
+            </button>
+          </div>
+        </section>
+      </div>
+    )
   }
 
   return (
     <div className="page">
       <section className="panel panel--highlight">
         <span className="eyebrow">Today entry</span>
-        <h1 className="section-title">오늘 남길 한 곡을 고르세요</h1>
+        <h1 className="section-title">오늘 남길 한 곡을 Spotify에서 고르세요</h1>
         <p className="section-copy">
-          실제 Spotify 검색과 날짜별 upsert는 다음 API 단계에서 붙습니다. 지금은 화면
-          흐름과 상태 구성을 먼저 맞춘 상태입니다.
+          검색 결과는 Spotify Web API에서 불러오고, 저장 시에는 `spotifyTrackId`
+          를 기준으로 서버가 곡 정보를 다시 확인합니다.
         </p>
       </section>
 
@@ -89,6 +184,10 @@ export function TodayEntryPage({ onBrowseHistory }: TodayEntryPageProps) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
+          {isSearching ? <div className="helper-text">Spotify 검색 중...</div> : null}
+          {visibleSearchError ? (
+            <div className="inline-banner inline-banner--error">{visibleSearchError}</div>
+          ) : null}
           <div className="track-result-list">
             {visibleTracks.map((track) => (
               <article key={track.spotifyTrackId} className="track-result">
@@ -110,6 +209,12 @@ export function TodayEntryPage({ onBrowseHistory }: TodayEntryPageProps) {
               </article>
             ))}
           </div>
+          {!isSearching &&
+          deferredQuery.length >= 2 &&
+          visibleTracks.length === 0 &&
+          !visibleSearchError ? (
+            <div className="empty-state">검색 결과가 없습니다.</div>
+          ) : null}
         </div>
 
         <div className="field-stack">
@@ -148,19 +253,15 @@ export function TodayEntryPage({ onBrowseHistory }: TodayEntryPageProps) {
             disabled={!isReadyToSave}
             onClick={handleSave}
           >
-            저장 흐름 미리보기
+            {isSaving ? '저장 중...' : '오늘 기록 저장'}
           </button>
           <button type="button" className="button button--secondary" onClick={onBrowseHistory}>
             히스토리 보기
           </button>
         </div>
 
-        {lastSavedAt ? (
-          <div className="inline-banner">
-            {lastSavedAt} 기준으로 화면 상태만 저장했습니다. 다음 단계에서
-            `PUT /api/entries/by-date/:date`에 연결하면 됩니다.
-          </div>
-        ) : null}
+        {saveMessage ? <div className="inline-banner">{saveMessage}</div> : null}
+        {saveError ? <div className="inline-banner inline-banner--error">{saveError}</div> : null}
       </section>
     </div>
   )

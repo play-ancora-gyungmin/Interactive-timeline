@@ -5,9 +5,21 @@ type AppShellProps = {
   activePath: AppRoute
   children: ReactNode
   onNavigate: (path: AppRoute) => void
+  isSessionPending: boolean
+  userName: string | null
+  onSignIn: () => void
+  onSignOut: () => void
 }
 
-export function AppShell({ activePath, children, onNavigate }: AppShellProps) {
+export function AppShell({
+  activePath,
+  children,
+  onNavigate,
+  isSessionPending,
+  userName,
+  onSignIn,
+  onSignOut,
+}: AppShellProps) {
   const todayLabel = new Intl.DateTimeFormat('ko-KR', {
     month: 'long',
     day: 'numeric',
@@ -25,7 +37,27 @@ export function AppShell({ activePath, children, onNavigate }: AppShellProps) {
               <strong>한 곡으로 남기는 하루</strong>
             </div>
           </div>
-          <div className="topbar__meta">{todayLabel}</div>
+          <div className="topbar__actions">
+            <div className="topbar__meta">{todayLabel}</div>
+            {isSessionPending ? (
+              <span className="auth-chip auth-chip--pending">세션 확인 중</span>
+            ) : userName ? (
+              <>
+                <span className="auth-chip">Spotify · {userName}</span>
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  onClick={onSignOut}
+                >
+                  로그아웃
+                </button>
+              </>
+            ) : (
+              <button type="button" className="button button--primary" onClick={onSignIn}>
+                Spotify로 로그인
+              </button>
+            )}
+          </div>
         </header>
 
         <nav className="main-nav" aria-label="Primary">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AppShell } from '../components/layout/AppShell'
-import { sampleEntries } from '../lib/sample-data'
+import { authClient } from '../lib/auth-client'
 import { HistoryPage } from '../pages/HistoryPage'
 import { HomePage } from '../pages/HomePage'
 import { TodayEntryPage } from '../pages/TodayEntryPage'
@@ -15,6 +15,7 @@ const normalizeRoute = (pathname: string): AppRoute => {
 }
 
 export function AppRouter() {
+  const { data: session, isPending: isSessionPending } = authClient.useSession()
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(() =>
     normalizeRoute(window.location.pathname)
   )
@@ -41,20 +42,59 @@ export function AppRouter() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const handleSignIn = () => {
+    void authClient.signIn.social({
+      provider: 'spotify',
+      callbackURL: window.location.href,
+    })
+  }
+
+  const handleSignOut = () => {
+    void authClient.signOut()
+  }
+
+  const isAuthenticated = Boolean(session?.user)
+  const pageKey = `${currentRoute}:${session?.user?.id ?? 'guest'}`
+
   let page = (
-    <HomePage entries={sampleEntries.slice(0, 3)} onStartEntry={() => navigate('/today')} />
+    <HomePage
+      key={pageKey}
+      isAuthenticated={isAuthenticated}
+      onStartEntry={() => navigate('/today')}
+      onSignIn={handleSignIn}
+    />
   )
 
   if (currentRoute === '/today') {
-    page = <TodayEntryPage onBrowseHistory={() => navigate('/history')} />
+    page = (
+      <TodayEntryPage
+        key={pageKey}
+        isAuthenticated={isAuthenticated}
+        onBrowseHistory={() => navigate('/history')}
+        onSignIn={handleSignIn}
+      />
+    )
   }
 
   if (currentRoute === '/history') {
-    page = <HistoryPage entries={sampleEntries} />
+    page = (
+      <HistoryPage
+        key={pageKey}
+        isAuthenticated={isAuthenticated}
+        onSignIn={handleSignIn}
+      />
+    )
   }
 
   return (
-    <AppShell activePath={currentRoute} onNavigate={navigate}>
+    <AppShell
+      activePath={currentRoute}
+      isSessionPending={isSessionPending}
+      userName={session?.user?.name ?? null}
+      onNavigate={navigate}
+      onSignIn={handleSignIn}
+      onSignOut={handleSignOut}
+    >
       {page}
     </AppShell>
   )

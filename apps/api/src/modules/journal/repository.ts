@@ -4,9 +4,15 @@ import type {
   JournalEntity,
   UpdateJournalInput,
 } from './types.js';
+import type { SpotifyTrackSnapshot } from '../spotify/types.js';
 
 export interface JournalRepository {
-  create(userId: string, input: CreateJournalInput, entryDate: Date): Promise<JournalEntity>;
+  create(
+    userId: string,
+    input: CreateJournalInput,
+    entryDate: Date,
+    track: SpotifyTrackSnapshot,
+  ): Promise<JournalEntity>;
   findByIdAndUserId(journalId: string, userId: string): Promise<JournalEntity | null>;
   findByUserAndEntryDate(userId: string, entryDate: Date): Promise<JournalEntity | null>;
   listByUser(userId: string, limit: number, cursor?: Date): Promise<JournalEntity[]>;
@@ -15,6 +21,7 @@ export interface JournalRepository {
     userId: string,
     input: UpdateJournalInput,
     entryDate?: Date,
+    track?: SpotifyTrackSnapshot,
   ): Promise<JournalEntity | null>;
   delete(journalId: string, userId: string): Promise<boolean>;
 }
@@ -36,19 +43,6 @@ const mapJournalEntity = (entry: JournalEntry): JournalEntity => ({
   updatedAt: entry.updatedAt,
 });
 
-const mapTrackUpdateInput = (input: Pick<UpdateJournalInput, 'track'>) =>
-  input.track
-    ? {
-        spotifyTrackId: input.track.spotifyTrackId,
-        trackName: input.track.trackName,
-        artistNames: input.track.artistNames,
-        albumName: input.track.albumName,
-        albumImageUrl: input.track.albumImageUrl ?? null,
-        spotifyUrl: input.track.spotifyUrl,
-        previewUrl: input.track.previewUrl ?? null,
-      }
-    : {};
-
 export class PrismaJournalRepository implements JournalRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -56,6 +50,7 @@ export class PrismaJournalRepository implements JournalRepository {
     userId: string,
     input: CreateJournalInput,
     entryDate: Date,
+    track: SpotifyTrackSnapshot,
   ): Promise<JournalEntity> {
     const created = await this.prisma.journalEntry.create({
       data: {
@@ -63,13 +58,13 @@ export class PrismaJournalRepository implements JournalRepository {
         entryDate,
         mood: input.mood,
         note: input.note,
-        spotifyTrackId: input.track.spotifyTrackId,
-        trackName: input.track.trackName,
-        artistNames: input.track.artistNames,
-        albumName: input.track.albumName,
-        albumImageUrl: input.track.albumImageUrl ?? null,
-        spotifyUrl: input.track.spotifyUrl,
-        previewUrl: input.track.previewUrl ?? null,
+        spotifyTrackId: track.spotifyTrackId,
+        trackName: track.trackName,
+        artistNames: track.artistNames,
+        albumName: track.albumName,
+        albumImageUrl: track.albumImageUrl ?? null,
+        spotifyUrl: track.spotifyUrl,
+        previewUrl: track.previewUrl ?? null,
       },
     });
 
@@ -136,6 +131,7 @@ export class PrismaJournalRepository implements JournalRepository {
     userId: string,
     input: UpdateJournalInput,
     entryDate?: Date,
+    track?: SpotifyTrackSnapshot,
   ): Promise<JournalEntity | null> {
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.journalEntry.updateMany({
@@ -147,7 +143,17 @@ export class PrismaJournalRepository implements JournalRepository {
           ...(entryDate ? { entryDate } : {}),
           ...(input.mood ? { mood: input.mood } : {}),
           ...(input.note ? { note: input.note } : {}),
-          ...mapTrackUpdateInput(input),
+          ...(track
+            ? {
+                spotifyTrackId: track.spotifyTrackId,
+                trackName: track.trackName,
+                artistNames: track.artistNames,
+                albumName: track.albumName,
+                albumImageUrl: track.albumImageUrl ?? null,
+                spotifyUrl: track.spotifyUrl,
+                previewUrl: track.previewUrl ?? null,
+              }
+            : {}),
         },
       });
 

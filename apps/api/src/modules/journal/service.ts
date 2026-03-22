@@ -5,11 +5,12 @@ import type {
   JournalEntity,
   JournalListItem,
   JournalListResult,
-  JournalTrackInput,
   ListJournalsQuery,
   UpdateJournalInput,
 } from './types.js';
 import type { JournalRepository } from './repository.js';
+import type { SpotifyService } from '../spotify/service.js';
+import type { SpotifyTrackSnapshot } from '../spotify/types.js';
 
 const NOTE_PREVIEW_MAX_LENGTH = 120;
 
@@ -22,7 +23,7 @@ const serializeEntryDate = (value: Date) => value.toISOString().slice(0, 10);
 
 const serializeTimestamp = (value: Date) => value.toISOString();
 
-const createTrack = (entity: JournalEntity): JournalTrackInput => ({
+const createStoredTrack = (entity: JournalEntity): SpotifyTrackSnapshot => ({
   spotifyTrackId: entity.spotifyTrackId,
   trackName: entity.trackName,
   artistNames: entity.artistNames,
@@ -32,25 +33,28 @@ const createTrack = (entity: JournalEntity): JournalTrackInput => ({
   previewUrl: entity.previewUrl,
 });
 
-const createDetail = (entity: JournalEntity): JournalDetail => ({
+const createDetail = (
+  entity: JournalEntity,
+  track: SpotifyTrackSnapshot,
+): JournalDetail => ({
   id: entity.id,
   entryDate: serializeEntryDate(entity.entryDate),
   mood: entity.mood,
   note: entity.note,
-  track: createTrack(entity),
+  track,
   createdAt: serializeTimestamp(entity.createdAt),
   updatedAt: serializeTimestamp(entity.updatedAt),
 });
 
-const createListItem = (entity: JournalEntity): JournalListItem => ({
+const createListItem = (
+  entity: JournalEntity,
+  track: SpotifyTrackSnapshot,
+): JournalListItem => ({
   id: entity.id,
   entryDate: serializeEntryDate(entity.entryDate),
   mood: entity.mood,
   notePreview: entity.note.slice(0, NOTE_PREVIEW_MAX_LENGTH),
-  trackName: entity.trackName,
-  artistNames: entity.artistNames,
-  albumImageUrl: entity.albumImageUrl,
-  spotifyUrl: entity.spotifyUrl,
+  track,
 });
 
 export interface JournalService {
@@ -66,7 +70,10 @@ export interface JournalService {
 }
 
 export class DefaultJournalService implements JournalService {
-  constructor(private readonly journalRepository: JournalRepository) {}
+  constructor(
+    private readonly journalRepository: JournalRepository,
+    private readonly spotifyService: SpotifyService,
+  ) {}
 
   async createJournal(
     userId: string,
@@ -82,8 +89,14 @@ export class DefaultJournalService implements JournalService {
       throw new ConflictException('A journal already exists for this date');
     }
 
-    const created = await this.journalRepository.create(userId, input, entryDate);
-    return createDetail(created);
+    const track = await this.spotifyService.requireTrackById(input.spotifyTrackId);
+    const created = await this.journalRepository.create(
+      userId,
+      input,
+      entryDate,
+      track,
+    );
+    return createDetail(created, track);
   }
 
   async listJournals(
@@ -101,9 +114,17 @@ export class DefaultJournalService implements JournalService {
     const hasMore = entries.length > limit;
     const visibleEntries = hasMore ? entries.slice(0, limit) : entries;
     const lastEntry = visibleEntries[visibleEntries.length - 1];
+    const tracksById = await this.spotifyService.getTracksByIds(
+      visibleEntries.map((entry) => entry.spotifyTrackId),
+    );
 
     return {
-      items: visibleEntries.map(createListItem),
+      items: visibleEntries.map((entry) =>
+        createListItem(
+          entry,
+          tracksById.get(entry.spotifyTrackId) ?? createStoredTrack(entry),
+        ),
+      ),
       pageInfo: {
         nextCursor: hasMore && lastEntry ? serializeEntryDate(lastEntry.entryDate) : null,
         hasMore,
@@ -118,7 +139,11 @@ export class DefaultJournalService implements JournalService {
       throw new NotFoundException('Journal not found');
     }
 
-    return createDetail(entry);
+    const track =
+      (await this.spotifyService.getTrackById(entry.spotifyTrackId)) ??
+      createStoredTrack(entry);
+
+    return createDetail(entry, track);
   }
 
   async updateJournal(
@@ -147,18 +172,23 @@ export class DefaultJournalService implements JournalService {
       }
     }
 
+    const nextTrack = input.spotifyTrackId
+      ? await this.spotifyService.requireTrackById(input.spotifyTrackId)
+      : undefined;
+
     const updated = await this.journalRepository.update(
       journalId,
       userId,
       input,
       nextEntryDate,
+      nextTrack,
     );
 
     if (!updated) {
       throw new NotFoundException('Journal not found');
     }
 
-    return createDetail(updated);
+    return createDetail(updated, nextTrack ?? createStoredTrack(updated));
   }
 
   async deleteJournal(userId: string, journalId: string): Promise<void> {

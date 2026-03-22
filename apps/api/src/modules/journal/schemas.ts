@@ -23,26 +23,11 @@ const dateSchema = z
   .regex(isoDatePattern, 'entryDate must be YYYY-MM-DD')
   .refine(isValidDateString, 'entryDate must be a valid calendar date');
 
-const nullableUrlSchema = z.union([z.string().url(), z.null()]);
-
-export const journalTrackSchema = z.object({
-  spotifyTrackId: z.string().trim().min(1).max(255),
-  trackName: z.string().trim().min(1).max(255),
-  artistNames: z
-    .array(z.string().trim().min(1).max(255))
-    .min(1)
-    .max(10),
-  albumName: z.string().trim().min(1).max(255),
-  albumImageUrl: nullableUrlSchema.optional(),
-  spotifyUrl: z.string().url(),
-  previewUrl: nullableUrlSchema.optional(),
-});
-
 export const createJournalSchema = z.object({
   entryDate: dateSchema,
   mood: z.enum(JOURNAL_MOODS),
   note: z.string().trim().min(1).max(2000),
-  track: journalTrackSchema,
+  spotifyTrackId: z.string().trim().min(1).max(255),
 });
 
 export const updateJournalSchema = z
@@ -50,7 +35,7 @@ export const updateJournalSchema = z
     entryDate: dateSchema.optional(),
     mood: z.enum(JOURNAL_MOODS).optional(),
     note: z.string().trim().min(1).max(2000).optional(),
-    track: journalTrackSchema.optional(),
+    spotifyTrackId: z.string().trim().min(1).max(255).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one field is required',

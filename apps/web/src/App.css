@@ -68,6 +68,30 @@
   color: #5f7a82;
 }
 
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.auth-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(15, 138, 135, 0.1);
+  color: #0f6a67;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.auth-chip--pending {
+  background: rgba(95, 122, 130, 0.12);
+  color: #5f7a82;
+}
+
 .main-nav {
   display: flex;
   flex-wrap: wrap;
@@ -372,6 +396,11 @@
   font-size: 0.95rem;
 }
 
+.inline-banner--error {
+  background: rgba(179, 75, 66, 0.1);
+  color: #a43a2f;
+}
+
 .history-card__header {
   display: flex;
   justify-content: space-between;
@@ -394,6 +423,11 @@
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .topbar__actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .history-card__header,

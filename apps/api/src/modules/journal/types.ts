@@ -1,3 +1,5 @@
+import type { SpotifyTrackSnapshot } from '../spotify/types.js';
+
 export const JOURNAL_MOODS = [
   'happy',
   'calm',
@@ -8,28 +10,18 @@ export const JOURNAL_MOODS = [
 
 export type JournalMood = (typeof JOURNAL_MOODS)[number];
 
-export interface JournalTrackInput {
-  spotifyTrackId: string;
-  trackName: string;
-  artistNames: string[];
-  albumName: string;
-  albumImageUrl?: string | null;
-  spotifyUrl: string;
-  previewUrl?: string | null;
-}
-
 export interface CreateJournalInput {
   entryDate: string;
   mood: JournalMood;
   note: string;
-  track: JournalTrackInput;
+  spotifyTrackId: string;
 }
 
 export interface UpdateJournalInput {
   entryDate?: string;
   mood?: JournalMood;
   note?: string;
-  track?: JournalTrackInput;
+  spotifyTrackId?: string;
 }
 
 export interface ListJournalsQuery {
@@ -59,7 +51,7 @@ export interface JournalDetail {
   entryDate: string;
   mood: string;
   note: string;
-  track: JournalTrackInput;
+  track: SpotifyTrackSnapshot;
   createdAt: string;
   updatedAt: string;
 }
@@ -69,10 +61,7 @@ export interface JournalListItem {
   entryDate: string;
   mood: string;
   notePreview: string;
-  trackName: string;
-  artistNames: string[];
-  albumImageUrl: string | null;
-  spotifyUrl: string;
+  track: SpotifyTrackSnapshot;
 }
 
 export interface JournalListResult {
