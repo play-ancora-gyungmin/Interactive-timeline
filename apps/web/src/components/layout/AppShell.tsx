@@ -1,81 +1,106 @@
 import type { ReactNode } from 'react'
-import { navItems, type AppRoute } from '../../app/routes'
+import { NavLink } from 'react-router-dom'
+import { navItems, routePaths } from '../../app/routes'
+import type { AppMode } from '../../app/layout-context'
+import { formatTodayLabel } from '../../lib/format'
+import { ActionButton } from '../ui/ActionButton'
+import { Notice } from '../ui/Notice'
+import styles from './AppShell.module.css'
 
 type AppShellProps = {
-  activePath: AppRoute
   children: ReactNode
-  onNavigate: (path: AppRoute) => void
+  appMode: AppMode
   isSessionPending: boolean
   userName: string | null
+  authFeedback: string | null
   onSignIn: () => void
   onSignOut: () => void
 }
 
 export function AppShell({
-  activePath,
   children,
-  onNavigate,
+  appMode,
   isSessionPending,
   userName,
+  authFeedback,
   onSignIn,
   onSignOut,
 }: AppShellProps) {
-  const todayLabel = new Intl.DateTimeFormat('ko-KR', {
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long',
-  }).format(new Date())
-
   return (
-    <div className="app-shell">
-      <div className="app-shell__inner">
-        <header className="topbar">
-          <div className="brand">
-            <div className="brand-mark">DM</div>
-            <div className="brand-copy">
-              <span>Daily Music Journal</span>
-              <strong>한 곡으로 남기는 하루</strong>
+    <div className={styles.shell}>
+      <div className={styles.inner}>
+        <header className={styles.topbar}>
+          <div className={styles.brand}>
+            <div className={styles.mark}>DM</div>
+            <div className={styles.copy}>
+              <span className={styles.eyebrow}>Daily Music Journal</span>
+              <strong>곡과 메모로 남기는 오늘의 기록</strong>
             </div>
           </div>
-          <div className="topbar__actions">
-            <div className="topbar__meta">{todayLabel}</div>
+
+          <div className={styles.actions}>
+            <div className={styles.meta}>
+              <span>{formatTodayLabel()}</span>
+              <span className={styles.modeChip}>
+                {appMode === 'authenticated' ? '실사용 모드' : '게스트 모드'}
+              </span>
+            </div>
             {isSessionPending ? (
-              <span className="auth-chip auth-chip--pending">세션 확인 중</span>
+              <span className={styles.sessionChip}>세션 확인 중</span>
             ) : userName ? (
               <>
-                <span className="auth-chip">Spotify · {userName}</span>
-                <button
-                  type="button"
-                  className="button button--secondary"
-                  onClick={onSignOut}
-                >
+                <span className={styles.sessionChip}>Spotify · {userName}</span>
+                <ActionButton variant="secondary" onClick={onSignOut}>
                   로그아웃
-                </button>
+                </ActionButton>
               </>
             ) : (
-              <button type="button" className="button button--primary" onClick={onSignIn}>
+              <ActionButton variant="primary" onClick={onSignIn}>
                 Spotify로 로그인
-              </button>
+              </ActionButton>
             )}
           </div>
         </header>
 
-        <nav className="main-nav" aria-label="Primary">
+        {authFeedback ? <Notice tone="error">{authFeedback}</Notice> : null}
+
+        <nav aria-label="주요 탐색" className={styles.desktopNav}>
           {navItems.map((item) => (
-            <button
+            <NavLink
               key={item.path}
-              type="button"
-              className={`nav-chip ${activePath === item.path ? 'nav-chip--active' : ''}`}
-              onClick={() => onNavigate(item.path)}
-              title={item.description}
+              className={({ isActive }) =>
+                [styles.navLink, isActive ? styles['navLink--active'] : '']
+                  .filter(Boolean)
+                  .join(' ')
+              }
+              end={item.path === routePaths.overview}
+              to={item.path}
             >
-              {item.label}
-            </button>
+              <span>{item.label}</span>
+              <small>{item.description}</small>
+            </NavLink>
           ))}
         </nav>
 
-        <main>{children}</main>
+        <main className={styles.main}>{children}</main>
       </div>
+
+      <nav aria-label="모바일 주요 탐색" className={styles.mobileNav}>
+        {navItems.map((item) => (
+          <NavLink
+            key={item.path}
+            className={({ isActive }) =>
+              [styles.mobileNavLink, isActive ? styles['mobileNavLink--active'] : '']
+                .filter(Boolean)
+                .join(' ')
+            }
+            end={item.path === routePaths.overview}
+            to={item.path}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   )
 }

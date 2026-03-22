@@ -1,0 +1,109 @@
+.page {
+  display: grid;
+  gap: 22px;
+}
+
+.heroGrid {
+  display: grid;
+  gap: 18px;
+}
+
+.hero {
+  padding: 28px;
+}
+
+.eyebrow,
+.sectionEyebrow {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: var(--radius-pill);
+  padding: 7px 12px;
+  background: rgba(224, 122, 83, 0.12);
+  color: var(--accent-coral);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 18px 0 14px;
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+
+.lead {
+  margin: 0;
+  max-width: 56ch;
+  color: var(--ink-700);
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.statusStack {
+  display: grid;
+  gap: 16px;
+}
+
+.statusCard {
+  padding: 22px;
+}
+
+.statusLabel {
+  color: var(--ink-500);
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.statusValue {
+  display: block;
+  margin-top: 12px;
+  font-size: 1.2rem;
+}
+
+.statusCopy {
+  margin: 10px 0 0;
+  color: var(--ink-700);
+  line-height: 1.65;
+}
+
+.section {
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  margin: 10px 0 0;
+  font-size: 1.55rem;
+  letter-spacing: -0.03em;
+}
+
+.cardGrid {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 980px) {
+  .heroGrid {
+    grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
+  }
+}

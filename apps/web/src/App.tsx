@@ -1,8 +1,12 @@
+import { AppProviders } from './app/AppProviders'
 import { AppRouter } from './app/router'
-import './App.css'
 
 function App() {
-  return <AppRouter />
+  return (
+    <AppProviders>
+      <AppRouter />
+    </AppProviders>
+  )
 }
 
 export default App

@@ -1,5 +1,7 @@
 export type Mood = 'happy' | 'calm' | 'focused' | 'melancholy' | 'chaotic'
 
+export type EntrySource = 'demo' | 'live'
+
 export type TrackSummary = {
   spotifyTrackId: string
   name: string
@@ -29,6 +31,17 @@ export type JournalEntryDetail = {
   updatedAt: string
 }
 
+export type JournalCardModel = {
+  id: string
+  entryDate: string
+  mood: Mood
+  notePreview: string
+  note: string | null
+  track: TrackSummary
+  createdAt: string
+  source: EntrySource
+}
+
 const NOTE_PREVIEW_MAX_LENGTH = 120
 
 export const toJournalPreview = (entry: JournalEntryDetail): JournalPreview => ({
@@ -38,6 +51,20 @@ export const toJournalPreview = (entry: JournalEntryDetail): JournalPreview => (
   notePreview: entry.note.slice(0, NOTE_PREVIEW_MAX_LENGTH),
   track: entry.track,
   createdAt: entry.createdAt,
+})
+
+export const toJournalCardModel = (
+  entry: JournalPreview | JournalEntryDetail,
+  source: EntrySource = 'live',
+): JournalCardModel => ({
+  id: entry.id,
+  entryDate: entry.entryDate,
+  mood: entry.mood,
+  notePreview: 'notePreview' in entry ? entry.notePreview : entry.note.slice(0, NOTE_PREVIEW_MAX_LENGTH),
+  note: 'note' in entry ? entry.note : null,
+  track: entry.track,
+  createdAt: entry.createdAt,
+  source,
 })
 
 export const moodLabels: Record<Mood, string> = {
