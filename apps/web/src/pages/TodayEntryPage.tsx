@@ -17,12 +17,15 @@ const getTodayEntryDate = () =>
     timeZone: 'Asia/Seoul',
   }).format(new Date())
 
+const DEFAULT_MOOD: Mood = 'focused'
+
 export function TodayEntryPage({
   isAuthenticated,
   onBrowseHistory,
   onSignIn,
 }: TodayEntryPageProps) {
-  const [selectedMood, setSelectedMood] = useState<Mood>('focused')
+  const todayEntryDate = getTodayEntryDate()
+  const [selectedMood, setSelectedMood] = useState<Mood>(DEFAULT_MOOD)
   const [note, setNote] = useState('')
   const [query, setQuery] = useState('')
   const [selectedTrack, setSelectedTrack] = useState<TrackSummary | null>(null)
@@ -36,6 +39,9 @@ export function TodayEntryPage({
 
   useEffect(() => {
     if (!isAuthenticated || deferredQuery.length < 2) {
+      setTracks([])
+      setSearchError(null)
+      setIsSearching(false)
       return
     }
 
@@ -83,7 +89,6 @@ export function TodayEntryPage({
   const visibleTracks = isAuthenticated && deferredQuery.length >= 2 ? tracks : []
   const visibleSearchError =
     isAuthenticated && deferredQuery.length >= 2 ? searchError : null
-
   const isReadyToSave = note.trim().length > 0 && selectedTrack !== null && !isSaving
 
   const handleSave = async () => {
@@ -97,21 +102,21 @@ export function TodayEntryPage({
 
     try {
       const savedEntry = await createJournalEntry({
-        entryDate: getTodayEntryDate(),
+        entryDate: todayEntryDate,
         mood: selectedMood,
         note: note.trim(),
         spotifyTrackId: selectedTrack.spotifyTrackId,
       })
 
-      setSaveMessage(
-        `${savedEntry.entryDate} 기록을 저장했습니다. 히스토리에서 바로 확인할 수 있습니다.`,
-      )
+      setSaveMessage(`${savedEntry.entryDate} 기록을 저장했습니다. 같은 날에도 더 올릴 수 있습니다.`)
+      setNote('')
+      setQuery('')
+      setTracks([])
+      setSelectedTrack(null)
     } catch (error) {
       if (error instanceof ApiClientError) {
         if (error.status === 401) {
           setSaveError('로그인이 필요합니다.')
-        } else if (error.status === 409) {
-          setSaveError('오늘 날짜의 기록이 이미 있습니다. 수정 흐름을 먼저 붙여야 합니다.')
         } else {
           setSaveError(error.message)
         }
@@ -149,14 +154,18 @@ export function TodayEntryPage({
     <div className="page">
       <section className="panel panel--highlight">
         <span className="eyebrow">Today entry</span>
-        <h1 className="section-title">오늘 남길 한 곡을 Spotify에서 고르세요</h1>
+        <h1 className="section-title">오늘 들은 곡을 여러 번 올릴 수 있습니다</h1>
         <p className="section-copy">
-          검색 결과는 Spotify Web API에서 불러오고, 저장 시에는 `spotifyTrackId`
-          를 기준으로 서버가 곡 정보를 다시 확인합니다.
+          이제 하루에 한 개로 제한하지 않습니다. 같은 날에도 곡과 메모를 여러 개 남길 수 있습니다.
         </p>
       </section>
 
       <section className="panel form-grid">
+        <div className="field-stack">
+          <span className="field-label">Entry date</span>
+          <div className="helper-text">{todayEntryDate}</div>
+        </div>
+
         <div className="field-stack">
           <span className="field-label">Mood</span>
           <div className="mood-grid">
@@ -253,7 +262,7 @@ export function TodayEntryPage({
             disabled={!isReadyToSave}
             onClick={handleSave}
           >
-            {isSaving ? '저장 중...' : '오늘 기록 저장'}
+            {isSaving ? '저장 중...' : '새 기록 올리기'}
           </button>
           <button type="button" className="button button--secondary" onClick={onBrowseHistory}>
             히스토리 보기

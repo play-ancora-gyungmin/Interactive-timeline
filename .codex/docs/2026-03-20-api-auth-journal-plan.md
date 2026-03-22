@@ -1,13 +1,16 @@
 # API 구현 계획 v1
 
+> 실제 구현 결과와 검증 이력은 `.codex/docs/2026-03-22-api-auth-journal-implementation-status.md`를 참고한다.
+
 ## Summary
 - 대상 문서 경로는 `.codex/docs/2026-03-20-api-auth-journal-plan.md`로 고정한다.
 - 현재 기준점은 `apps/api/src/auth/auth.ts`, `apps/api/src/app.ts`, `apps/api/src/routes/index.ts`, `apps/api/prisma/schema.prisma`, `apps/web/src/lib/auth-client.ts`이다.
-- 스키마에는 auth/journal 테이블이 이미 있으므로 이번 v1은 Prisma 마이그레이션 없이 진행하는 것을 기본값으로 둔다.
+- 초기에는 Prisma 마이그레이션 없이 진행했지만, `하루 여러 개 엔트리` 방향으로 바뀌면서 `(userId, entryDate)` unique 제거용 마이그레이션이 필요해졌다.
 - 범위는 저널 `생성 / 전체 조회(커서 기반 무한 스크롤) / 개별 조회 / 수정 / 삭제`와 Better Auth + Spotify OAuth 기반 `회원가입 / 로그인 / 세션 조회`만 포함한다.
 - 모든 신규 코드는 명시적 DI 패턴을 기준으로 작성한다. 의존성 조립은 composition root에서만 하고, controller/service는 인터페이스에만 의존한다.
-- Spotify track search API는 이번 문서 범위에서 제외한다. 저널 생성/수정은 프론트가 선택한 track snapshot을 body로 전달받는다.
-- `.codex/AGENTS.md`의 day-1 non-goal이던 Spotify 로그인 제외 규칙은 이번 사용자 요청으로 override된 것으로 취급한다.
+- Spotify track search API는 이후 요구사항 반영으로 범위에 포함한다.
+- 저널은 더 이상 `하루 1개`로 제한하지 않는다. 같은 사용자가 같은 날짜에 여러 개의 엔트리를 올릴 수 있다.
+- `.codex/AGENTS.md`의 `Spotify 로그인 제외`, `하루 1개 엔트리` 규칙은 이번 사용자 요청으로 override된 것으로 취급한다.
 
 ## Current Baseline
 - `apps/api/src/auth/auth.ts`
@@ -32,16 +35,14 @@
 ### Journal
 - `POST /api/journals`
   - 인증 사용자 기준 신규 생성
-  - 같은 `entryDate`가 이미 있으면 `409`
-- `GET /api/journals?limit=20&cursor=YYYY-MM-DD`
-  - `entryDate DESC` 커서 페이지네이션
+- `GET /api/journals?limit=20&cursor=<opaque cursor>`
+  - 최신 작성 순 `createdAt DESC, id DESC` 피드형 커서 페이지네이션
   - 기본 20, 최대 50
   - 응답은 `{ items, pageInfo: { nextCursor, hasMore } }`
 - `GET /api/journals/:journalId`
   - 본인 엔트리 상세 조회
 - `PATCH /api/journals/:journalId`
   - `entryDate | mood | note | track` 부분 수정 허용
-  - 날짜를 다른 기존 날짜로 바꾸려 하면 `409`
 - `DELETE /api/journals/:journalId`
   - hard delete 후 `204`
   - 타 유저 엔트리는 존재 여부와 무관하게 `404`
@@ -64,7 +65,7 @@ type CreateOrUpdateJournalInput = {
   entryDate: string; // YYYY-MM-DD
   mood: string;
   note: string;
-  track: JournalTrackInput;
+  spotifyTrackId: string;
 };
 ```
 
@@ -76,10 +77,8 @@ type JournalListItem = {
   entryDate: string; // YYYY-MM-DD
   mood: string;
   notePreview: string;
-  trackName: string;
-  artistNames: string[];
-  albumImageUrl?: string | null;
-  spotifyUrl: string;
+  createdAt: string; // ISO timestamp
+  track: JournalTrackInput;
 };
 ```
 
@@ -116,6 +115,9 @@ type JournalListItem = {
 - 라우터 생성도 `createJournalRouter(deps)` 형태로 구성해 테스트에서 mock service를 주입할 수 있게 한다.
 - 인증 미들웨어 `requireSession`을 추가해 Better Auth 세션을 request headers로 조회하고 `req.auth = { userId, sessionId }`를 주입한다.
 - `Express.Request` 타입 확장도 함께 정의한다.
+- 같은 날짜 중복 생성 제한은 제거한다.
+- 목록 커서는 날짜 문자열이 아니라 작성 시각 기반의 opaque cursor로 바꾼다.
+- History 성격이 강한 화면이지만 정렬은 `entryDate`가 아니라 최신 게시 시각 기준 피드형으로 본다.
 
 ### Error Handling
 - `apps/api/src/middlewares/errorHandler.ts`와 `apps/api/src/middlewares/validate.ts`는 저널 범위에서 `{ success: false, message, errors? }` 형식으로 맞춘다.
@@ -138,7 +140,7 @@ type JournalListItem = {
   - 같은 Spotify 계정으로 재로그인해도 user/account 중복 생성이 없음
 - 저널 자동 테스트
   - create `201`
-  - same-day duplicate create `409`
+  - same-day duplicate create도 허용
   - list page 간 중복/누락 없음
   - detail/update/delete는 본인 소유만 성공
   - delete 후 detail `404`
@@ -152,6 +154,7 @@ type JournalListItem = {
 - email/password는 public flow에서 쓰지 않지만 기존 Prisma 스키마는 유지한다.
 - 세션 조회는 Better Auth 기본 surface를 그대로 쓴다.
 - 앱 전체 API 구현은 IoC 컨테이너 없이, 읽기 쉬운 명시적 DI 패턴으로 유지한다.
+- 제품 방향은 `오늘의 대표곡 1개`에서 `하루에 여러 번 올릴 수 있는 데일리 뮤직 로그/SNS`로 바뀌었다.
 - OAuth 구현/세션 동작 기준은 아래 문서를 따른다.
   - Better Auth Installation: https://better-auth.com/docs/installation
   - Better Auth Client: https://www.better-auth.com/docs/concepts/client

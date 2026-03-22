@@ -10,6 +10,7 @@ import { DefaultJournalService } from '../modules/journal/service.js';
 import type {
   CreateJournalInput,
   JournalEntity,
+  JournalListCursor,
   UpdateJournalInput,
 } from '../modules/journal/types.js';
 import { createSpotifyRouter } from '../modules/spotify/router.js';
@@ -21,10 +22,9 @@ import { createApiRouter } from '../modules/router.js';
 const TEST_USER_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_USER_ID = '22222222-2222-4222-8222-222222222222';
 
-const createEntryDate = (value: string) => new Date(`${value}T00:00:00.000Z`);
-
 class InMemoryJournalRepository implements JournalRepository {
   private entries: JournalEntity[] = [];
+  private createdAtTick = 0;
 
   async create(
     userId: string,
@@ -32,7 +32,8 @@ class InMemoryJournalRepository implements JournalRepository {
     entryDate: Date,
     track: SpotifyTrackSnapshot,
   ): Promise<JournalEntity> {
-    const now = new Date();
+    const now = new Date(Date.UTC(2026, 2, 1, 0, 0, 0, this.createdAtTick));
+    this.createdAtTick += 1;
     const entity: JournalEntity = {
       id: randomUUID(),
       userId,
@@ -65,23 +66,10 @@ class InMemoryJournalRepository implements JournalRepository {
     return entry ? this.clone(entry) : null;
   }
 
-  async findByUserAndEntryDate(
-    userId: string,
-    entryDate: Date,
-  ): Promise<JournalEntity | null> {
-    const entry = this.entries.find(
-      (candidate) =>
-        candidate.userId === userId &&
-        candidate.entryDate.getTime() === entryDate.getTime(),
-    );
-
-    return entry ? this.clone(entry) : null;
-  }
-
   async listByUser(
     userId: string,
     limit: number,
-    cursor?: Date,
+    cursor?: JournalListCursor,
   ): Promise<JournalEntity[]> {
     return this.entries
       .filter((entry) => {
@@ -93,9 +81,25 @@ class InMemoryJournalRepository implements JournalRepository {
           return true;
         }
 
-        return entry.entryDate.getTime() < cursor.getTime();
+        if (entry.createdAt.getTime() < cursor.createdAt.getTime()) {
+          return true;
+        }
+
+        if (entry.createdAt.getTime() > cursor.createdAt.getTime()) {
+          return false;
+        }
+
+        return entry.id < cursor.id;
       })
-      .sort((left, right) => right.entryDate.getTime() - left.entryDate.getTime())
+      .sort((left, right) => {
+        const createdAtDiff = right.createdAt.getTime() - left.createdAt.getTime();
+
+        if (createdAtDiff !== 0) {
+          return createdAtDiff;
+        }
+
+        return right.id.localeCompare(left.id);
+      })
       .slice(0, limit)
       .map((entry) => this.clone(entry));
   }
@@ -328,27 +332,43 @@ describe('journal routes', () => {
     expect(detailResponse.body.data.note).toBe(payload.note);
   });
 
-  it('rejects duplicate journal creation for the same day', async () => {
+  it('allows multiple journal creation for the same day', async () => {
     const payload = createJournalPayload('2026-03-20');
+    const secondPayload: CreateJournalInput = {
+      ...payload,
+      mood: 'happy',
+      note: 'second-note-2026-03-20',
+    };
 
-    await request(app)
+    const firstResponse = await request(app)
       .post('/api/journals')
       .set('x-test-user-id', TEST_USER_ID)
       .send(payload);
 
-    const duplicateResponse = await request(app)
+    const secondResponse = await request(app)
       .post('/api/journals')
       .set('x-test-user-id', TEST_USER_ID)
-      .send(payload);
+      .send(secondPayload);
 
-    expect(duplicateResponse.status).toBe(409);
-    expect(duplicateResponse.body.message).toBe(
-      'A journal already exists for this date',
-    );
+    expect(firstResponse.status).toBe(201);
+    expect(secondResponse.status).toBe(201);
+    expect(secondResponse.body.data.id).not.toBe(firstResponse.body.data.id);
+
+    const listResponse = await request(app)
+      .get('/api/journals?limit=10')
+      .set('x-test-user-id', TEST_USER_ID);
+
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body.data.items).toHaveLength(2);
+    expect(
+      listResponse.body.data.items.filter(
+        (item: { entryDate: string }) => item.entryDate === '2026-03-20',
+      ),
+    ).toHaveLength(2);
   });
 
   it('returns cursor pagination without duplicates', async () => {
-    for (const date of ['2026-03-22', '2026-03-21', '2026-03-20']) {
+    for (const date of ['2026-03-20', '2026-03-21', '2026-03-22']) {
       await request(app)
         .post('/api/journals')
         .set('x-test-user-id', TEST_USER_ID)
@@ -362,10 +382,8 @@ describe('journal routes', () => {
     expect(firstPage.status).toBe(200);
     expect(firstPage.body.data.items).toHaveLength(2);
     expect(firstPage.body.data.items[0].track.spotifyTrackId).toBe('track-2026-03-22');
-    expect(firstPage.body.data.pageInfo).toEqual({
-      nextCursor: '2026-03-21',
-      hasMore: true,
-    });
+    expect(firstPage.body.data.pageInfo.hasMore).toBe(true);
+    expect(typeof firstPage.body.data.pageInfo.nextCursor).toBe('string');
 
     const secondPage = await request(app)
       .get(`/api/journals?limit=2&cursor=${firstPage.body.data.pageInfo.nextCursor}`)
@@ -457,7 +475,7 @@ describe('journal routes', () => {
     expect(detailResponse.status).toBe(404);
   });
 
-  it('rejects date conflicts on update', async () => {
+  it('allows updating an entry to a date already used by another entry', async () => {
     const first = await request(app)
       .post('/api/journals')
       .set('x-test-user-id', TEST_USER_ID)
@@ -468,14 +486,15 @@ describe('journal routes', () => {
       .set('x-test-user-id', TEST_USER_ID)
       .send(createJournalPayload('2026-03-21'));
 
-    const conflictResponse = await request(app)
+    const updateResponse = await request(app)
       .patch(`/api/journals/${first.body.data.id}`)
       .set('x-test-user-id', TEST_USER_ID)
       .send({
         entryDate: '2026-03-21',
       });
 
-    expect(conflictResponse.status).toBe(409);
+    expect(updateResponse.status).toBe(200);
+    expect(updateResponse.body.data.entryDate).toBe('2026-03-21');
   });
 
   it('returns 404 when another user tries to delete a journal', async () => {
@@ -505,9 +524,9 @@ describe('journal routes', () => {
       .set('x-test-user-id', TEST_USER_ID)
       .send(payload);
 
-    const stored = await dependencies.journalRepository.findByUserAndEntryDate(
+    const stored = await dependencies.journalRepository.findByIdAndUserId(
+      createResponse.body.data.id,
       TEST_USER_ID,
-      createEntryDate('2026-03-20'),
     );
 
     expect(createResponse.body.data.entryDate).toBe('2026-03-20');

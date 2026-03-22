@@ -2,6 +2,7 @@ import type { PrismaClient, JournalEntry } from '../../generated/prisma/client.j
 import type {
   CreateJournalInput,
   JournalEntity,
+  JournalListCursor,
   UpdateJournalInput,
 } from './types.js';
 import type { SpotifyTrackSnapshot } from '../spotify/types.js';
@@ -14,8 +15,11 @@ export interface JournalRepository {
     track: SpotifyTrackSnapshot,
   ): Promise<JournalEntity>;
   findByIdAndUserId(journalId: string, userId: string): Promise<JournalEntity | null>;
-  findByUserAndEntryDate(userId: string, entryDate: Date): Promise<JournalEntity | null>;
-  listByUser(userId: string, limit: number, cursor?: Date): Promise<JournalEntity[]>;
+  listByUser(
+    userId: string,
+    limit: number,
+    cursor?: JournalListCursor,
+  ): Promise<JournalEntity[]>;
   update(
     journalId: string,
     userId: string,
@@ -85,41 +89,39 @@ export class PrismaJournalRepository implements JournalRepository {
     return entry ? mapJournalEntity(entry) : null;
   }
 
-  async findByUserAndEntryDate(
-    userId: string,
-    entryDate: Date,
-  ): Promise<JournalEntity | null> {
-    const entry = await this.prisma.journalEntry.findUnique({
-      where: {
-        userId_entryDate: {
-          userId,
-          entryDate,
-        },
-      },
-    });
-
-    return entry ? mapJournalEntity(entry) : null;
-  }
-
   async listByUser(
     userId: string,
     limit: number,
-    cursor?: Date,
+    cursor?: JournalListCursor,
   ): Promise<JournalEntity[]> {
     const entries = await this.prisma.journalEntry.findMany({
       where: {
         userId,
         ...(cursor
           ? {
-              entryDate: {
-                lt: cursor,
-              },
+              OR: [
+                {
+                  createdAt: {
+                    lt: cursor.createdAt,
+                  },
+                },
+                {
+                  AND: [
+                    {
+                      createdAt: cursor.createdAt,
+                    },
+                    {
+                      id: {
+                        lt: cursor.id,
+                      },
+                    },
+                  ],
+                },
+              ],
             }
           : {}),
       },
-      orderBy: {
-        entryDate: 'desc',
-      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit,
     });
 

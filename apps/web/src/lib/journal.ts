@@ -16,6 +16,7 @@ export type JournalPreview = {
   mood: Mood
   notePreview: string
   track: TrackSummary
+  createdAt: string
 }
 
 export type JournalEntryDetail = {
@@ -27,6 +28,17 @@ export type JournalEntryDetail = {
   createdAt: string
   updatedAt: string
 }
+
+const NOTE_PREVIEW_MAX_LENGTH = 120
+
+export const toJournalPreview = (entry: JournalEntryDetail): JournalPreview => ({
+  id: entry.id,
+  entryDate: entry.entryDate,
+  mood: entry.mood,
+  notePreview: entry.note.slice(0, NOTE_PREVIEW_MAX_LENGTH),
+  track: entry.track,
+  createdAt: entry.createdAt,
+})
 
 export const moodLabels: Record<Mood, string> = {
   happy: '벅차는 하루',

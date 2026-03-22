@@ -1,8 +1,12 @@
-import { ConflictException, NotFoundException } from '../../err/httpException.js';
+import {
+  BadRequestException,
+  NotFoundException,
+} from '../../err/httpException.js';
 import type {
   CreateJournalInput,
   JournalDetail,
   JournalEntity,
+  JournalListCursor,
   JournalListItem,
   JournalListResult,
   ListJournalsQuery,
@@ -22,6 +26,28 @@ const normalizeEntryDate = (value: string) => {
 const serializeEntryDate = (value: Date) => value.toISOString().slice(0, 10);
 
 const serializeTimestamp = (value: Date) => value.toISOString();
+
+const encodeCursor = (value: JournalListCursor) =>
+  `${serializeTimestamp(value.createdAt)}__${value.id}`;
+
+const decodeCursor = (value: string): JournalListCursor => {
+  const [createdAtValue, id] = value.split('__');
+  const createdAt = new Date(createdAtValue);
+
+  if (
+    !createdAtValue ||
+    !id ||
+    Number.isNaN(createdAt.getTime()) ||
+    createdAt.toISOString() !== createdAtValue
+  ) {
+    throw new BadRequestException('Invalid cursor');
+  }
+
+  return {
+    createdAt,
+    id,
+  };
+};
 
 const createStoredTrack = (entity: JournalEntity): SpotifyTrackSnapshot => ({
   spotifyTrackId: entity.spotifyTrackId,
@@ -55,6 +81,7 @@ const createListItem = (
   mood: entity.mood,
   notePreview: entity.note.slice(0, NOTE_PREVIEW_MAX_LENGTH),
   track,
+  createdAt: serializeTimestamp(entity.createdAt),
 });
 
 export interface JournalService {
@@ -80,15 +107,6 @@ export class DefaultJournalService implements JournalService {
     input: CreateJournalInput,
   ): Promise<JournalDetail> {
     const entryDate = normalizeEntryDate(input.entryDate);
-    const existing = await this.journalRepository.findByUserAndEntryDate(
-      userId,
-      entryDate,
-    );
-
-    if (existing) {
-      throw new ConflictException('A journal already exists for this date');
-    }
-
     const track = await this.spotifyService.requireTrackById(input.spotifyTrackId);
     const created = await this.journalRepository.create(
       userId,
@@ -104,7 +122,7 @@ export class DefaultJournalService implements JournalService {
     query: ListJournalsQuery,
   ): Promise<JournalListResult> {
     const limit = query.limit;
-    const cursor = query.cursor ? normalizeEntryDate(query.cursor) : undefined;
+    const cursor = query.cursor ? decodeCursor(query.cursor) : undefined;
     const entries = await this.journalRepository.listByUser(
       userId,
       limit + 1,
@@ -126,7 +144,13 @@ export class DefaultJournalService implements JournalService {
         ),
       ),
       pageInfo: {
-        nextCursor: hasMore && lastEntry ? serializeEntryDate(lastEntry.entryDate) : null,
+        nextCursor:
+          hasMore && lastEntry
+            ? encodeCursor({
+                createdAt: lastEntry.createdAt,
+                id: lastEntry.id,
+              })
+            : null,
         hasMore,
       },
     };
@@ -160,17 +184,6 @@ export class DefaultJournalService implements JournalService {
     const nextEntryDate = input.entryDate
       ? normalizeEntryDate(input.entryDate)
       : undefined;
-
-    if (nextEntryDate) {
-      const conflictingEntry = await this.journalRepository.findByUserAndEntryDate(
-        userId,
-        nextEntryDate,
-      );
-
-      if (conflictingEntry && conflictingEntry.id !== current.id) {
-        throw new ConflictException('A journal already exists for this date');
-      }
-    }
 
     const nextTrack = input.spotifyTrackId
       ? await this.spotifyService.requireTrackById(input.spotifyTrackId)

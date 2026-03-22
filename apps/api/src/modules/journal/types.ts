@@ -29,6 +29,11 @@ export interface ListJournalsQuery {
   cursor?: string;
 }
 
+export interface JournalListCursor {
+  createdAt: Date;
+  id: string;
+}
+
 export interface JournalEntity {
   id: string;
   userId: string;
@@ -62,6 +67,7 @@ export interface JournalListItem {
   mood: string;
   notePreview: string;
   track: SpotifyTrackSnapshot;
+  createdAt: string;
 }
 
 export interface JournalListResult {

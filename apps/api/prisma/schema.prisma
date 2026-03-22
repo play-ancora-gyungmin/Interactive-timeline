@@ -94,8 +94,8 @@ model JournalEntry {
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, entryDate], map: "journal_entries_user_date_unique")
   @@index([userId, entryDate], map: "journal_entries_user_date_idx")
+  @@index([userId, createdAt, id], map: "journal_entries_user_created_at_idx")
   @@index([userId, spotifyTrackId], map: "journal_entries_user_track_idx")
   @@map("journal_entries")
 }

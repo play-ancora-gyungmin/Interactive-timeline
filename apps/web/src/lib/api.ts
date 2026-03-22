@@ -31,6 +31,7 @@ type ApiJournalListItem = {
   mood: import('./journal').Mood
   notePreview: string
   track: ApiSpotifyTrack
+  createdAt: string
 }
 
 type ApiJournalDetail = {
@@ -83,6 +84,7 @@ const mapJournalPreview = (
   mood: item.mood,
   notePreview: item.notePreview,
   track: mapTrackSummary(item.track),
+  createdAt: item.createdAt,
 })
 
 const mapJournalDetail = (
@@ -210,4 +212,26 @@ export async function createJournalEntry(input: {
   })
 
   return mapJournalDetail(data)
+}
+
+export async function updateJournalEntry(
+  journalId: string,
+  input: {
+    mood?: import('./journal').Mood
+    note?: string
+    spotifyTrackId?: string
+  },
+) {
+  const data = await apiFetch<ApiJournalDetail>(`/journals/${journalId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+
+  return mapJournalDetail(data)
+}
+
+export async function deleteJournalEntry(journalId: string) {
+  await apiFetch<undefined>(`/journals/${journalId}`, {
+    method: 'DELETE',
+  })
 }
