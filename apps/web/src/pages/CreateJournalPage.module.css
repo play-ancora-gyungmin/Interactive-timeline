@@ -1,0 +1,239 @@
+.page {
+  display: grid;
+}
+
+.sheet {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid rgba(37, 64, 68, 0.1);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at top right, rgba(224, 122, 83, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 242, 235, 0.92));
+  box-shadow: var(--shadow-soft);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  margin-bottom: 10px;
+  border-radius: var(--radius-pill);
+  padding: 7px 12px;
+  background: rgba(46, 124, 120, 0.1);
+  color: var(--accent-teal);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 0.96;
+  letter-spacing: -0.05em;
+  color: var(--ink-950);
+}
+
+.copy {
+  margin: 0;
+  max-width: 56ch;
+  color: var(--ink-700);
+  line-height: 1.7;
+}
+
+.form {
+  display: grid;
+  gap: 18px;
+}
+
+.field {
+  display: grid;
+  gap: 10px;
+}
+
+.label {
+  color: var(--ink-950);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.helper {
+  color: var(--ink-500);
+  font-size: 0.88rem;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  border: 1px solid rgba(37, 64, 68, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink-950);
+  font: inherit;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.input {
+  min-height: 52px;
+  padding: 0 16px;
+}
+
+.textarea {
+  min-height: 150px;
+  padding: 16px;
+  resize: vertical;
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: rgba(46, 124, 120, 0.34);
+  box-shadow: 0 0 0 4px rgba(46, 124, 120, 0.1);
+}
+
+.moodGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.moodChip {
+  border: 1px solid rgba(37, 64, 68, 0.1);
+  border-radius: var(--radius-pill);
+  padding: 11px 14px;
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--ink-700);
+  font: inherit;
+  font-weight: 700;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.moodChip:hover {
+  transform: translateY(-1px);
+}
+
+.moodChip--active {
+  border-color: rgba(46, 124, 120, 0.18);
+  background: linear-gradient(135deg, rgba(224, 122, 83, 0.12), rgba(46, 124, 120, 0.16));
+  color: var(--ink-950);
+}
+
+.selectedTrack,
+.trackOption {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid rgba(37, 64, 68, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.selectedTrack {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  box-shadow: 0 10px 24px rgba(23, 34, 36, 0.06);
+}
+
+.selectedTrackCopy,
+.trackOptionCopy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.selectedTrackCopy strong,
+.trackOptionCopy strong {
+  color: var(--ink-950);
+  font-size: 0.98rem;
+}
+
+.selectedTrackCopy span,
+.trackOptionCopy span {
+  color: var(--ink-700);
+  font-size: 0.92rem;
+}
+
+.selectedTrackCopy small,
+.trackOptionCopy small {
+  color: var(--ink-500);
+  font-size: 0.84rem;
+}
+
+.clearTrackButton {
+  border: 0;
+  background: transparent;
+  color: var(--accent-teal);
+  font: inherit;
+  font-weight: 700;
+}
+
+.searchResults {
+  display: grid;
+  gap: 10px;
+}
+
+.trackOption {
+  border: 1px solid rgba(37, 64, 68, 0.08);
+  color: inherit;
+  text-align: left;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.trackOption:hover {
+  transform: translateY(-1px);
+  border-color: rgba(46, 124, 120, 0.22);
+  box-shadow: 0 14px 28px rgba(46, 124, 120, 0.08);
+}
+
+.searchState {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 0.92rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .sheet {
+    padding: 20px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .selectedTrack {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .clearTrackButton {
+    grid-column: 1 / -1;
+    justify-self: flex-start;
+    padding-left: 2px;
+  }
+}

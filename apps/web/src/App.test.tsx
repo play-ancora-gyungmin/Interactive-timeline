@@ -137,7 +137,93 @@ describe('web app', () => {
 
     expect(await screen.findByText('River Lights')).toBeTruthy()
     expect(screen.getByText('집중용 메모 미리보기')).toBeTruthy()
-    expect(screen.getByText('실제 기록 피드')).toBeTruthy()
+    expect(screen.getByText('테스트 사용자')).toBeTruthy()
+  })
+
+  it('creates a journal entry from the floating action button', async () => {
+    authState.sessionData = {
+      user: {
+        id: 'user-1',
+        name: '테스트 사용자',
+      },
+    }
+
+    const createdEntries: Array<typeof liveEntryPreview> = []
+
+    server.use(
+      http.get(apiRoute('/api/journals'), () =>
+        HttpResponse.json({
+          success: true,
+          data: {
+            items: createdEntries,
+            pageInfo: {
+              hasMore: false,
+              nextCursor: null,
+            },
+          },
+        }),
+      ),
+      http.get(apiRoute('/api/spotify/tracks/search'), () =>
+        HttpResponse.json({
+          success: true,
+          data: [spotifyTrack],
+        }),
+      ),
+      http.post(apiRoute('/api/journals'), async ({ request }) => {
+        const payload = (await request.json()) as {
+          entryDate: string
+          mood: 'happy' | 'calm' | 'focused' | 'melancholy' | 'chaotic'
+          note: string
+          spotifyTrackId: string
+        }
+
+        createdEntries.splice(0, createdEntries.length, {
+          id: 'created-1',
+          entryDate: payload.entryDate,
+          mood: payload.mood,
+          notePreview: payload.note,
+          createdAt: '2026-03-24T03:00:00.000Z',
+          track: spotifyTrack,
+        })
+
+        return HttpResponse.json({
+          success: true,
+          data: {
+            id: 'created-1',
+            entryDate: payload.entryDate,
+            mood: payload.mood,
+            note: payload.note,
+            createdAt: '2026-03-24T03:00:00.000Z',
+            updatedAt: '2026-03-24T03:00:00.000Z',
+            track: spotifyTrack,
+          },
+        })
+      }),
+    )
+
+    renderAt('/')
+
+    fireEvent.click(await screen.findByRole('button', { name: '저널 작성' }))
+
+    expect(await screen.findByRole('heading', { name: '새 음악 기록' })).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('곡 검색'), {
+      target: { value: 'River' },
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: /River Lights/ }))
+
+    fireEvent.change(screen.getByLabelText('메모'), {
+      target: { value: '오늘의 리듬을 남긴다' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '기록 저장' }))
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/')
+    })
+
+    expect(await screen.findByText('오늘의 리듬을 남긴다')).toBeTruthy()
   })
 
   it('redirects the legacy library route to profile', async () => {

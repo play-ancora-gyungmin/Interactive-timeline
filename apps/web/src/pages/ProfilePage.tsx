@@ -51,24 +51,10 @@ export function ProfilePage() {
         </div>
       </Surface>
 
-      <div className={styles.statsGrid}>
+      <div className={styles.summaryRow}>
         <Surface className={styles.stat}>
-          <span className={styles.statLabel}>세션</span>
-          <strong className={styles.statValue}>
-            {isAuthenticated ? 'Spotify 연결됨' : '로그인 필요'}
-          </strong>
-        </Surface>
-        <Surface className={styles.stat}>
-          <span className={styles.statLabel}>최근 기록</span>
-          <strong className={styles.statValue}>
-            {isAuthenticated ? `${recentEntries.length}개 표시 중` : '0개'}
-          </strong>
-        </Surface>
-        <Surface className={styles.stat}>
-          <span className={styles.statLabel}>피드 상태</span>
-          <strong className={styles.statValue}>
-            {isAuthenticated ? '실제 데이터만 표시' : '데모 없음'}
-          </strong>
+          <span className={styles.statLabel}>작성한 저널 수</span>
+          <strong className={styles.statValue}>{isAuthenticated ? recentEntries.length : 0}</strong>
         </Surface>
       </div>
 

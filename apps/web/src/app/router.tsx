@@ -17,6 +17,7 @@ import {
   resolveSpotifyAuthAvailability,
 } from '../lib/auth-flow'
 import { AuthReturnPage } from '../pages/AuthReturnPage'
+import { CreateJournalPage } from '../pages/CreateJournalPage'
 import { OverviewPage } from '../pages/OverviewPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { internalRoutePaths, routePaths } from './routes'
@@ -125,6 +126,7 @@ export function AppRouter() {
         <Route path={internalRoutePaths.authReturn} element={<AuthReturnPage />} />
         <Route element={<AppLayout />}>
           <Route path={routePaths.overview} element={<OverviewPage />} />
+          <Route path={routePaths.create} element={<CreateJournalPage />} />
           <Route path={routePaths.profile} element={<ProfilePage />} />
           <Route path={routePaths.legacyLibrary} element={<Navigate replace to={routePaths.profile} />} />
           <Route path="*" element={<RedirectToOverview />} />
