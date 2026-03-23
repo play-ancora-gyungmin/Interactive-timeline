@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   NotFoundException,
 } from '../../err/httpException.js';
 import type {
@@ -84,6 +85,9 @@ const createListItem = (
   createdAt: serializeTimestamp(entity.createdAt),
 });
 
+const shouldUseStoredTrackFallback = (error: unknown) =>
+  error instanceof HttpException && error.statusCode >= 500;
+
 export interface JournalService {
   createJournal(userId: string, input: CreateJournalInput): Promise<JournalDetail>;
   listJournals(userId: string, query: ListJournalsQuery): Promise<JournalListResult>;
@@ -132,9 +136,17 @@ export class DefaultJournalService implements JournalService {
     const hasMore = entries.length > limit;
     const visibleEntries = hasMore ? entries.slice(0, limit) : entries;
     const lastEntry = visibleEntries[visibleEntries.length - 1];
-    const tracksById = await this.spotifyService.getTracksByIds(
-      visibleEntries.map((entry) => entry.spotifyTrackId),
-    );
+    let tracksById = new Map<string, SpotifyTrackSnapshot>();
+
+    try {
+      tracksById = await this.spotifyService.getTracksByIds(
+        visibleEntries.map((entry) => entry.spotifyTrackId),
+      );
+    } catch (error) {
+      if (!shouldUseStoredTrackFallback(error)) {
+        throw error;
+      }
+    }
 
     return {
       items: visibleEntries.map((entry) =>
@@ -163,9 +175,18 @@ export class DefaultJournalService implements JournalService {
       throw new NotFoundException('Journal not found');
     }
 
-    const track =
-      (await this.spotifyService.getTrackById(entry.spotifyTrackId)) ??
-      createStoredTrack(entry);
+    const storedTrack = createStoredTrack(entry);
+    let track = storedTrack;
+
+    try {
+      track =
+        (await this.spotifyService.getTrackById(entry.spotifyTrackId)) ??
+        storedTrack;
+    } catch (error) {
+      if (!shouldUseStoredTrackFallback(error)) {
+        throw error;
+      }
+    }
 
     return createDetail(entry, track);
   }

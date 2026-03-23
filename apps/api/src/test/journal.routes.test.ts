@@ -3,6 +3,7 @@ import request from 'supertest';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { createApp } from '../app.js';
 import type { AppDependencies } from '../composition/createAppDependencies.js';
+import { HttpException } from '../err/httpException.js';
 import { createRequireSession } from '../modules/auth/require-session.middleware.js';
 import { createJournalRouter } from '../modules/journal/router.js';
 import type { JournalRepository } from '../modules/journal/repository.js';
@@ -182,6 +183,9 @@ const createAuthStub = () =>
   }) as unknown as AppDependencies['auth'];
 
 class FakeSpotifyGateway implements SpotifyGateway {
+  failGetTrackById = false;
+  failGetTracksByIds = false;
+
   constructor(private readonly tracks: SpotifyTrackSnapshot[]) {}
 
   async searchTracks(query: string, limit: number): Promise<SpotifyTrackSnapshot[]> {
@@ -201,6 +205,10 @@ class FakeSpotifyGateway implements SpotifyGateway {
   }
 
   async getTrackById(trackId: string): Promise<SpotifyTrackSnapshot | null> {
+    if (this.failGetTrackById) {
+      throw new HttpException('Spotify API request failed', 502);
+    }
+
     return (
       this.tracks.find((track) => track.spotifyTrackId === trackId) ?? null
     );
@@ -209,6 +217,10 @@ class FakeSpotifyGateway implements SpotifyGateway {
   async getTracksByIds(
     trackIds: string[],
   ): Promise<Map<string, SpotifyTrackSnapshot>> {
+    if (this.failGetTracksByIds) {
+      throw new HttpException('Spotify API request failed', 502);
+    }
+
     const trackIdSet = new Set(trackIds);
     const result = new Map<string, SpotifyTrackSnapshot>();
 
@@ -299,7 +311,7 @@ const createJournalPayload = (entryDate: string): CreateJournalInput => ({
 });
 
 describe('journal routes', () => {
-  let dependencies: AppDependencies;
+  let dependencies: ReturnType<typeof createTestDependencies>;
   let app: ReturnType<typeof createApp>;
 
   beforeEach(() => {
@@ -401,6 +413,41 @@ describe('journal routes', () => {
       nextCursor: null,
       hasMore: false,
     });
+  });
+
+  it('falls back to stored track data when spotify batch lookup fails', async () => {
+    await request(app)
+      .post('/api/journals')
+      .set('x-test-user-id', TEST_USER_ID)
+      .send(createJournalPayload('2026-03-20'));
+
+    dependencies.spotifyGateway.failGetTracksByIds = true;
+
+    const listResponse = await request(app)
+      .get('/api/journals?limit=10')
+      .set('x-test-user-id', TEST_USER_ID);
+
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body.data.items).toHaveLength(1);
+    expect(listResponse.body.data.items[0].track.spotifyTrackId).toBe(
+      'track-2026-03-20',
+    );
+  });
+
+  it('falls back to stored track data when spotify detail lookup fails', async () => {
+    const createResponse = await request(app)
+      .post('/api/journals')
+      .set('x-test-user-id', TEST_USER_ID)
+      .send(createJournalPayload('2026-03-20'));
+
+    dependencies.spotifyGateway.failGetTrackById = true;
+
+    const detailResponse = await request(app)
+      .get(`/api/journals/${createResponse.body.data.id}`)
+      .set('x-test-user-id', TEST_USER_ID);
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body.data.track.spotifyTrackId).toBe('track-2026-03-20');
   });
 
   it('returns 404 for other user detail access', async () => {
