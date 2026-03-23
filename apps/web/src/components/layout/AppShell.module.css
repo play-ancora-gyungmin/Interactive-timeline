@@ -33,11 +33,31 @@
 }
 
 .appName {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
   margin: 0;
-  font-size: clamp(0.98rem, 2.6vw, 1.16rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--ink-950);
+  line-height: 0;
+}
+
+.appNameIcon {
+  display: block;
+  width: clamp(58px, 16vw, 72px);
+  height: auto;
+  filter: drop-shadow(0 12px 20px rgba(46, 124, 120, 0.16));
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .actions {

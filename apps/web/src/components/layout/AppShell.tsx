@@ -21,6 +21,94 @@ type TabIconProps = {
   className?: string
 }
 
+function BrandMarkIcon({ className }: TabIconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 84 40"
+    >
+      <defs>
+        <linearGradient
+          id="app-shell-brand-gradient"
+          x1="8"
+          x2="76"
+          y1="6"
+          y2="34"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor="var(--accent-coral)" />
+          <stop offset="1" stopColor="var(--accent-teal)" />
+        </linearGradient>
+      </defs>
+      <rect
+        x="1"
+        y="1"
+        width="82"
+        height="38"
+        rx="15"
+        fill="url(#app-shell-brand-gradient)"
+      />
+      <rect
+        x="1"
+        y="1"
+        width="82"
+        height="38"
+        rx="15"
+        stroke="white"
+        strokeOpacity="0.28"
+      />
+      <circle
+        cx="24"
+        cy="20"
+        r="10"
+        fill="white"
+        fillOpacity="0.16"
+        stroke="white"
+        strokeOpacity="0.56"
+        strokeWidth="1.5"
+      />
+      <circle cx="24" cy="20" r="2.8" fill="white" fillOpacity="0.94" />
+      <path
+        d="M19 15.5a7 7 0 0 1 7-2.3"
+        stroke="white"
+        strokeLinecap="round"
+        strokeOpacity="0.72"
+        strokeWidth="1.5"
+      />
+      <rect
+        x="42"
+        y="10"
+        width="28"
+        height="20"
+        rx="7"
+        fill="white"
+        fillOpacity="0.16"
+        stroke="white"
+        strokeOpacity="0.4"
+        strokeWidth="1.2"
+      />
+      <path
+        d="M50.5 15.5h11M50.5 20h8M50.5 24.5h11"
+        stroke="white"
+        strokeLinecap="round"
+        strokeOpacity="0.9"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M46.5 14.5v11"
+        stroke="white"
+        strokeLinecap="round"
+        strokeOpacity="0.5"
+        strokeWidth="1.5"
+      />
+      <circle cx="46.5" cy="17" r="1.1" fill="white" fillOpacity="0.88" />
+      <circle cx="46.5" cy="23" r="1.1" fill="white" fillOpacity="0.88" />
+    </svg>
+  )
+}
+
 function TimelineTabIcon({ className }: TabIconProps) {
   return (
     <svg
@@ -64,7 +152,6 @@ function CreateTabIcon({ className }: TabIconProps) {
 
 export function AppShell({
   children,
-  isAuthenticated,
   isSessionPending,
   userName,
   spotifyAuthAvailability,
@@ -84,7 +171,10 @@ export function AppShell({
     <div className={styles.shell}>
       <div className={styles.inner}>
         <header className={styles.topbar}>
-          <strong className={styles.appName}>Daily Music Journal</strong>
+          <strong className={styles.appName}>
+            <BrandMarkIcon className={styles.appNameIcon} />
+            <span className={styles.srOnly}>Daily Music Journal</span>
+          </strong>
 
           <div className={styles.actions}>
             <span className={styles.userName}>{displayName}</span>

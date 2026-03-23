@@ -70,8 +70,13 @@ function AppLayout() {
         errorCallbackURL: buildAuthReturnCallbackURL(nextPath),
       })
       .then((result) => {
-        if (result?.redirect && result.url) {
-          window.location.href = result.url
+        if (result.error) {
+          setAuthFeedback('Spotify 로그인 시작에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+          return
+        }
+
+        if (result.data.redirect && result.data.url) {
+          window.location.href = result.data.url
         }
       })
       .catch(() => {
