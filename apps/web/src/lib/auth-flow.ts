@@ -6,7 +6,7 @@ export type SpotifyAuthAvailability = 'checking' | 'enabled' | 'disabled' | 'unk
 export const AUTH_RETURN_POLL_INTERVAL_MS = 750
 export const AUTH_RETURN_TIMEOUT_MS = 6_000
 
-const fallbackOrigin = 'http://localhost'
+const fallbackOrigin = 'http://127.0.0.1'
 
 const getOrigin = () => (typeof window === 'undefined' ? fallbackOrigin : window.location.origin)
 

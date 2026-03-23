@@ -1,4 +1,18 @@
-const fallbackApiBaseUrl = 'http://localhost:4000/api'
+const fallbackApiBaseUrl = '/api'
+
+const isAbsoluteUrl = (value: string) => /^https?:\/\//.test(value)
+
+const normalizePath = (value: string) => {
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return fallbackApiBaseUrl
+  }
+
+  const prefixed = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+
+  return prefixed.replace(/\/$/, '')
+}
 
 type ApiResponse<T> = {
   success: true
@@ -107,10 +121,14 @@ const mapJournalDetail = (
 })
 
 const getApiBaseUrl = () => {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 
   if (!apiBaseUrl) {
     return fallbackApiBaseUrl
+  }
+
+  if (!isAbsoluteUrl(apiBaseUrl)) {
+    return normalizePath(apiBaseUrl)
   }
 
   return apiBaseUrl.replace(/\/$/, '')

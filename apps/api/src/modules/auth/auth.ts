@@ -2,7 +2,7 @@ import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { admin } from 'better-auth/plugins';
 import type { PrismaClient } from '../../generated/prisma/client.js';
-import { config } from '../../config/env.config.js';
+import { config, isDevelopment } from '../../config/env.config.js';
 
 const FALLBACK_SPOTIFY_USER_NAME = 'Spotify User';
 
@@ -17,10 +17,40 @@ interface SpotifyProfileLike {
   }>;
 }
 
-const getTrustedOrigins = () =>
+const createOriginAlias = (origin: string, hostname: string) => {
+  const url = new URL(origin);
+
+  if (url.hostname === hostname) {
+    return null;
+  }
+
+  url.hostname = hostname;
+  return url.toString().replace(/\/$/, '');
+};
+
+const getConfiguredOrigins = () =>
   config.FRONT_URL.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+
+const getDefaultFrontOrigin = () => getConfiguredOrigins()[0] ?? config.BETTER_AUTH_URL;
+
+const getTrustedOrigins = () => {
+  const configuredOrigins = getConfiguredOrigins();
+
+  if (!isDevelopment()) {
+    return configuredOrigins;
+  }
+
+  return [...new Set(configuredOrigins.flatMap((origin) => {
+    const localhostAlias = createOriginAlias(origin, 'localhost');
+    const loopbackAlias = createOriginAlias(origin, '127.0.0.1');
+
+    return [origin, localhostAlias, loopbackAlias].filter(
+      (value): value is string => Boolean(value),
+    );
+  }))];
+};
 
 const getSpotifyScopes = () =>
   config.SPOTIFY_AUTH_SCOPES.split(',')
@@ -98,22 +128,25 @@ export function createAuth(prisma: PrismaClient) {
     secret: config.BETTER_AUTH_SECRET,
     baseURL: config.BETTER_AUTH_URL,
     trustedOrigins: getTrustedOrigins(),
+    onAPIError: {
+      errorURL: `${getDefaultFrontOrigin()}/auth/return`,
+    },
     advanced: {
       database: {
         generateId: 'uuid',
       },
     },
     user: {
-      modelName: 'users',
+      modelName: 'User',
     },
     account: {
-      modelName: 'accounts',
+      modelName: 'Account',
     },
     session: {
-      modelName: 'sessions',
+      modelName: 'Session',
     },
     verification: {
-      modelName: 'verifications',
+      modelName: 'Verification',
     },
     socialProviders: spotifyProvider
       ? {

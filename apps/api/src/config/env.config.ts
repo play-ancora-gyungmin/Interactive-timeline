@@ -4,7 +4,7 @@ import { z } from 'zod';
 dotenv.config();
 
 const defaultPort = process.env.PORT ?? '4000';
-const defaultFrontUrl = 'http://localhost:5173';
+const defaultFrontUrl = 'http://127.0.0.1:5173';
 
 const isValidUrl = (value: string) => {
   try {
@@ -40,7 +40,7 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z
     .string()
     .url()
-    .default(`http://localhost:${defaultPort}`),
+    .default(`http://127.0.0.1:${defaultPort}`),
   SPOTIFY_CLIENT_ID: z.string().min(1).optional(),
   SPOTIFY_CLIENT_SECRET: z.string().min(1).optional(),
   SPOTIFY_AUTH_SCOPES: z

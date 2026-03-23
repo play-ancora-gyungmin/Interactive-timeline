@@ -1,17 +1,39 @@
-import { createAuthClient } from 'better-auth/react';
+import { createAuthClient } from 'better-auth/react'
 
-const fallbackAuthBaseUrl = 'http://localhost:4000';
+const fallbackApiBasePath = '/api'
 
-const getAuthBaseURL = () => {
-  const apiBaseURL = import.meta.env.VITE_API_BASE_URL;
+const isAbsoluteUrl = (value: string) => /^https?:\/\//.test(value)
 
-  if (!apiBaseURL) {
-    return fallbackAuthBaseUrl;
+const normalizePath = (value: string) => {
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return fallbackApiBasePath
   }
 
-  return apiBaseURL.replace(/\/api\/?$/, '');
-};
+  const prefixed = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
 
-export const authClient = createAuthClient({
-  baseURL: getAuthBaseURL(),
-});
+  return prefixed.replace(/\/$/, '')
+}
+
+const getAuthClientOptions = () => {
+  const apiBaseURL = import.meta.env.VITE_API_BASE_URL?.trim()
+
+  if (!apiBaseURL) {
+    return {
+      basePath: `${fallbackApiBasePath}/auth`,
+    }
+  }
+
+  if (isAbsoluteUrl(apiBaseURL)) {
+    return {
+      baseURL: apiBaseURL.replace(/\/api\/?$/, ''),
+    }
+  }
+
+  return {
+    basePath: `${normalizePath(apiBaseURL)}/auth`,
+  }
+}
+
+export const authClient = createAuthClient(getAuthClientOptions())

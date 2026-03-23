@@ -17,10 +17,8 @@ import {
   resolveSpotifyAuthAvailability,
 } from '../lib/auth-flow'
 import { AuthReturnPage } from '../pages/AuthReturnPage'
-import { CapturePage } from '../pages/CapturePage'
-import { LibraryPage } from '../pages/LibraryPage'
 import { OverviewPage } from '../pages/OverviewPage'
-import type { AppMode } from './layout-context'
+import { ProfilePage } from '../pages/ProfilePage'
 import { internalRoutePaths, routePaths } from './routes'
 
 function AppLayout() {
@@ -33,7 +31,7 @@ function AppLayout() {
   const healthQuery = useHealthQuery()
   const [authFeedback, setAuthFeedback] = useState<string | null>(null)
 
-  const appMode: AppMode = session?.user ? 'authenticated' : 'guest'
+  const isAuthenticated = Boolean(session?.user)
   const spotifyAuthAvailability = resolveSpotifyAuthAvailability({
     health: healthQuery.data,
     isPending: healthQuery.isPending,
@@ -68,6 +66,12 @@ function AppLayout() {
       .signIn.social({
         provider: 'spotify',
         callbackURL: buildAuthReturnCallbackURL(nextPath),
+        errorCallbackURL: buildAuthReturnCallbackURL(nextPath),
+      })
+      .then((result) => {
+        if (result?.redirect && result.url) {
+          window.location.href = result.url
+        }
       })
       .catch(() => {
         setAuthFeedback('Spotify 로그인 시작에 실패했습니다. 잠시 후 다시 시도해 주세요.')
@@ -89,7 +93,7 @@ function AppLayout() {
 
   return (
     <AppShell
-      appMode={appMode}
+      isAuthenticated={isAuthenticated}
       isSessionPending={isSessionPending}
       userName={session?.user?.name ?? null}
       spotifyAuthAvailability={spotifyAuthAvailability}
@@ -99,7 +103,7 @@ function AppLayout() {
     >
       <Outlet
         context={{
-          appMode,
+          isAuthenticated,
           isSessionPending,
           userName: session?.user?.name ?? null,
           spotifyAuthAvailability,
@@ -121,8 +125,8 @@ export function AppRouter() {
         <Route path={internalRoutePaths.authReturn} element={<AuthReturnPage />} />
         <Route element={<AppLayout />}>
           <Route path={routePaths.overview} element={<OverviewPage />} />
-          <Route path={routePaths.capture} element={<CapturePage />} />
-          <Route path={routePaths.library} element={<LibraryPage />} />
+          <Route path={routePaths.profile} element={<ProfilePage />} />
+          <Route path={routePaths.legacyLibrary} element={<Navigate replace to={routePaths.profile} />} />
           <Route path="*" element={<RedirectToOverview />} />
         </Route>
       </Routes>

@@ -14,6 +14,17 @@ import styles from './AuthReturnPage.module.css'
 
 type AuthReturnStatus = 'checking' | 'success' | 'error'
 
+const getAuthErrorMessage = (errorCode: string | null) => {
+  switch (errorCode) {
+    case 'state_mismatch':
+      return '로그인 상태가 만료되었거나 브라우저 호스트가 바뀌었습니다. 로그인 버튼부터 다시 시작해 주세요.'
+    case 'please_restart_the_process':
+      return '인증 상태를 이어가지 못했습니다. 로그인 버튼부터 다시 시작해 주세요.'
+    default:
+      return '세션을 확인하지 못했습니다. 다시 시도해 주세요.'
+  }
+}
+
 export function AuthReturnPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -25,10 +36,21 @@ export function AuthReturnPage() {
   } = authClient.useSession()
   const [hasTimedOut, setHasTimedOut] = useState(false)
   const [attemptKey, setAttemptKey] = useState(0)
+  const authError = searchParams.get('error')
   const redirectTarget = sanitizePostAuthRedirect(searchParams.get('next'))
-  const status: AuthReturnStatus = session?.user ? 'success' : hasTimedOut ? 'error' : 'checking'
+  const status: AuthReturnStatus = authError
+    ? 'error'
+    : session?.user
+      ? 'success'
+      : hasTimedOut
+        ? 'error'
+        : 'checking'
 
   useEffect(() => {
+    if (authError) {
+      return
+    }
+
     if (session?.user) {
       const redirectTimer = window.setTimeout(() => {
         navigate(redirectTarget, { replace: true })
@@ -58,7 +80,7 @@ export function AuthReturnPage() {
       window.clearInterval(intervalId)
       window.clearTimeout(timeoutId)
     }
-  }, [attemptKey, hasTimedOut, navigate, redirectTarget, refetch, session?.user])
+  }, [attemptKey, authError, hasTimedOut, navigate, redirectTarget, refetch, session?.user])
 
   return (
     <div className={styles.page}>
@@ -75,7 +97,7 @@ export function AuthReturnPage() {
           {status === 'success'
             ? '확인된 세션으로 원래 보던 화면으로 바로 돌아갑니다.'
             : status === 'error'
-              ? '인증은 끝났지만 세션을 확인하지 못했습니다. 다시 확인하거나 개요 화면으로 이동할 수 있습니다.'
+              ? getAuthErrorMessage(authError)
               : '브라우저에 세션이 반영될 때까지 잠시 기다린 뒤 자동으로 이동합니다.'}
         </p>
 
@@ -88,7 +110,7 @@ export function AuthReturnPage() {
           <Notice tone="success">로그인이 확인되었습니다. 곧 원래 화면으로 이동합니다.</Notice>
         ) : null}
         {status === 'error' ? (
-          <Notice tone="error">세션을 확인하지 못했습니다. 다시 시도해 주세요.</Notice>
+          <Notice tone="error">{getAuthErrorMessage(authError)}</Notice>
         ) : null}
 
         <div className={styles.actions}>
@@ -103,7 +125,7 @@ export function AuthReturnPage() {
               >
                 다시 시도
               </ActionButton>
-              <ActionButton to={routePaths.overview}>개요로 이동</ActionButton>
+              <ActionButton to={routePaths.overview}>타임라인으로 이동</ActionButton>
             </>
           ) : (
             <ActionButton disabled variant="secondary">

@@ -5,11 +5,19 @@ import { config } from './config/env.config.js';
 
 const dependencies = createAppDependencies();
 const app = createApp(dependencies);
+const devHost = config.ENVIRONMENT === 'development'
+  ? new URL(config.BETTER_AUTH_URL).hostname
+  : undefined;
 
-const server = app.listen(config.PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${config.PORT}`);
-  console.log(`📦 Environment: ${config.ENVIRONMENT}`);
-});
+const server = devHost
+  ? app.listen(config.PORT, devHost, () => {
+    console.log(`🚀 Server running on http://${devHost}:${config.PORT}`);
+    console.log(`📦 Environment: ${config.ENVIRONMENT}`);
+  })
+  : app.listen(config.PORT, () => {
+    console.log(`🚀 Server running on port ${config.PORT}`);
+    console.log(`📦 Environment: ${config.ENVIRONMENT}`);
+  });
 
 const gracefulShutdown = async () => {
   console.log('🛑 Received kill signal, shutting down gracefully');

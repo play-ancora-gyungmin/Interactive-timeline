@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { server } from './test/server'
 
+const apiRoute = (path: string) =>
+  new RegExp(`${path.replaceAll('/', '\\/')}(?:\\?.*)?$`)
+
 const authState = vi.hoisted(() => ({
   sessionData: null as { user: { id: string; name: string } } | null,
   isPending: false,
@@ -49,16 +52,6 @@ const liveEntryPreview = {
   track: spotifyTrack,
 }
 
-const liveEntryDetail = {
-  id: 'live-1',
-  entryDate: '2026-03-23',
-  mood: 'focused',
-  note: '집중용 전체 메모',
-  createdAt: '2026-03-23T09:30:00.000Z',
-  updatedAt: '2026-03-23T09:30:00.000Z',
-  track: spotifyTrack,
-}
-
 function renderAt(pathname: string) {
   window.history.pushState({}, '', pathname)
   return render(<App />)
@@ -74,7 +67,7 @@ beforeEach(() => {
   authState.signOut.mockClear()
 
   server.use(
-    http.get('http://localhost:4000/api/health', () =>
+    http.get(apiRoute('/api/health'), () =>
       HttpResponse.json({
         ok: true,
         auth: {
@@ -86,17 +79,16 @@ beforeEach(() => {
 })
 
 describe('web app', () => {
-  it('renders guest overview with demo content', async () => {
+  it('renders an empty guest timeline without demo content', async () => {
     renderAt('/')
 
-    expect((await screen.findAllByText('게스트 모드')).length).toBeGreaterThan(0)
-    expect(screen.getByText('로그인 없이 둘러보는 샘플 기록')).toBeTruthy()
-    expect(screen.getByText('Sunrise Cassette')).toBeTruthy()
+    expect(await screen.findByText('아직 표시할 타임라인이 없습니다.')).toBeTruthy()
+    expect(screen.queryByText('Sunrise Cassette')).toBeNull()
   })
 
   it('disables Spotify login when the server auth provider is unavailable', async () => {
     server.use(
-      http.get('http://localhost:4000/api/health', () =>
+      http.get(apiRoute('/api/health'), () =>
         HttpResponse.json({
           ok: true,
           auth: {
@@ -118,39 +110,7 @@ describe('web app', () => {
     expect(screen.getByText(/서버에 Spotify 로그인 설정이 아직 없습니다/)).toBeTruthy()
   })
 
-  it('renders guest library as read-only sample feed', async () => {
-    renderAt('/library')
-
-    const openButtons = await screen.findAllByRole('button', { name: '열기' })
-    fireEvent.click(openButtons[0])
-
-    expect(
-      (
-        await screen.findAllByText(
-          '아침 출근길에 집중이 잘 안 잡혀서 리듬이 선명한 곡을 골랐다. 첫 후렴이 시작될 때 하루의 속도가 정리되는 느낌이 들었다.',
-        )
-      ).length,
-    ).toBeGreaterThan(0)
-    expect(screen.queryByRole('button', { name: '수정' })).toBeNull()
-  })
-
-  it('starts Spotify sign-in with an auth return callback that preserves the current location', async () => {
-    renderAt('/library?entry=demo-sunrise-cassette')
-
-    const buttons = await screen.findAllByRole('button', { name: 'Spotify로 로그인' })
-    await waitFor(() => {
-      expect((buttons[0] as HTMLButtonElement).disabled).toBe(false)
-    })
-
-    fireEvent.click(buttons[0])
-
-    expect(authState.signInSocial).toHaveBeenCalledWith({
-      provider: 'spotify',
-      callbackURL: `${window.location.origin}/auth/return?next=%2Flibrary%3Fentry%3Ddemo-sunrise-cassette`,
-    })
-  })
-
-  it('allows authenticated users to search and save a journal entry', async () => {
+  it('renders authenticated timeline cards from live data', async () => {
     authState.sessionData = {
       user: {
         id: 'user-1',
@@ -159,48 +119,7 @@ describe('web app', () => {
     }
 
     server.use(
-      http.get('http://localhost:4000/api/spotify/tracks/search', ({ request }) => {
-        const url = new URL(request.url)
-        const query = url.searchParams.get('query')
-
-        if (query === 'river') {
-          return HttpResponse.json({ success: true, data: [spotifyTrack] })
-        }
-
-        return HttpResponse.json({ success: true, data: [] })
-      }),
-      http.post('http://localhost:4000/api/journals', async () =>
-        HttpResponse.json({ success: true, data: liveEntryDetail }),
-      ),
-    )
-
-    renderAt('/capture')
-
-    fireEvent.change(screen.getByLabelText('Search'), {
-      target: { value: 'river' },
-    })
-
-    expect((await screen.findAllByText('River Lights')).length).toBeGreaterThan(0)
-    fireEvent.change(screen.getByLabelText('Journal note'), {
-      target: { value: '집중 메모를 저장합니다.' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: '기록 저장' }))
-
-    expect(await screen.findByText(/기록을 저장했습니다/)).toBeTruthy()
-  })
-
-  it('allows authenticated users to edit a journal entry from library detail', async () => {
-    authState.sessionData = {
-      user: {
-        id: 'user-1',
-        name: '테스트 사용자',
-      },
-    }
-
-    const updatedNote = '수정된 메모'
-
-    server.use(
-      http.get('http://localhost:4000/api/journals', () =>
+      http.get(apiRoute('/api/journals'), () =>
         HttpResponse.json({
           success: true,
           data: {
@@ -212,67 +131,40 @@ describe('web app', () => {
           },
         }),
       ),
-      http.get('http://localhost:4000/api/journals/live-1', () =>
-        HttpResponse.json({ success: true, data: liveEntryDetail }),
-      ),
-      http.patch('http://localhost:4000/api/journals/live-1', async () =>
-        HttpResponse.json({
-          success: true,
-          data: {
-            ...liveEntryDetail,
-            note: updatedNote,
-          },
-        }),
-      ),
     )
 
-    renderAt('/library?entry=live-1&mode=edit')
+    renderAt('/')
 
-    const textarea = await screen.findByLabelText('Journal note')
-    fireEvent.change(textarea, { target: { value: updatedNote } })
-    fireEvent.click(screen.getByRole('button', { name: '수정 저장' }))
-
-    expect(await screen.findByText(/기록을 수정했습니다/)).toBeTruthy()
+    expect(await screen.findByText('River Lights')).toBeTruthy()
+    expect(screen.getByText('집중용 메모 미리보기')).toBeTruthy()
+    expect(screen.getByText('실제 기록 피드')).toBeTruthy()
   })
 
-  it('allows authenticated users to delete a journal entry with confirmation', async () => {
-    authState.sessionData = {
-      user: {
-        id: 'user-1',
-        name: '테스트 사용자',
-      },
-    }
+  it('redirects the legacy library route to profile', async () => {
+    renderAt('/library')
 
-    let items = [liveEntryPreview]
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/profile')
+    })
 
-    server.use(
-      http.get('http://localhost:4000/api/journals', () =>
-        HttpResponse.json({
-          success: true,
-          data: {
-            items,
-            pageInfo: {
-              hasMore: false,
-              nextCursor: null,
-            },
-          },
-        }),
-      ),
-      http.get('http://localhost:4000/api/journals/live-1', () =>
-        HttpResponse.json({ success: true, data: liveEntryDetail }),
-      ),
-      http.delete('http://localhost:4000/api/journals/live-1', () => {
-        items = []
-        return new HttpResponse(null, { status: 204 })
-      }),
-    )
+    expect(await screen.findByRole('heading', { name: '프로필' })).toBeTruthy()
+  })
 
-    renderAt('/library?entry=live-1')
+  it('starts Spotify sign-in with an auth return callback that preserves the current location', async () => {
+    renderAt('/profile')
 
-    fireEvent.click(await screen.findByRole('button', { name: '삭제' }))
-    fireEvent.click(await screen.findByRole('button', { name: '삭제하기' }))
+    const buttons = await screen.findAllByRole('button', { name: 'Spotify로 로그인' })
+    await waitFor(() => {
+      expect((buttons[0] as HTMLButtonElement).disabled).toBe(false)
+    })
 
-    expect(await screen.findByText('기록을 삭제했습니다.')).toBeTruthy()
+    fireEvent.click(buttons[0])
+
+    expect(authState.signInSocial).toHaveBeenCalledWith({
+      provider: 'spotify',
+      callbackURL: `${window.location.origin}/auth/return?next=%2Fprofile`,
+      errorCallbackURL: `${window.location.origin}/auth/return?next=%2Fprofile`,
+    })
   })
 
   it('returns to the requested screen after auth when a session is already available', async () => {
@@ -283,11 +175,11 @@ describe('web app', () => {
       },
     }
 
-    renderAt('/auth/return?next=%2Fcapture')
+    renderAt('/auth/return?next=%2Fprofile')
 
     expect(await screen.findByText('Spotify 인증이 완료되었습니다')).toBeTruthy()
     await waitFor(() => {
-      expect(window.location.pathname).toBe('/capture')
+      expect(window.location.pathname).toBe('/profile')
     })
   })
 
@@ -295,7 +187,7 @@ describe('web app', () => {
     vi.useFakeTimers()
 
     try {
-      renderAt('/auth/return?next=%2Fcapture')
+      renderAt('/auth/return?next=%2Fprofile')
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(6_000)
@@ -306,5 +198,17 @@ describe('web app', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('shows an auth error returned from the backend on the frontend callback screen', async () => {
+    renderAt('/auth/return?next=%2Fprofile&error=state_mismatch')
+
+    expect(await screen.findByText('세션 확인에 실패했습니다')).toBeTruthy()
+    expect(
+      screen.getAllByText(
+        '로그인 상태가 만료되었거나 브라우저 호스트가 바뀌었습니다. 로그인 버튼부터 다시 시작해 주세요.',
+      ).length,
+    ).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy()
   })
 })
