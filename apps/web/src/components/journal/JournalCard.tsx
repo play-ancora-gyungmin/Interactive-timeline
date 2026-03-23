@@ -1,44 +1,48 @@
 import { formatCreatedAtLabel, formatEntryDateLabel } from '../../lib/format'
 import { moodLabels, type JournalCardModel } from '../../lib/journal'
-import { ActionButton } from '../ui/ActionButton'
 import { TrackArtwork } from './TrackArtwork'
 import styles from './JournalCard.module.css'
 
 type JournalCardProps = {
   entry: JournalCardModel
-  selected?: boolean
-  actionLabel?: string
-  onSelect?: () => void
 }
 
-export function JournalCard({
-  entry,
-  selected = false,
-  actionLabel = '상세 보기',
-  onSelect,
-}: JournalCardProps) {
+const getHeadline = (entry: JournalCardModel) => entry.track.artists.join(', ')
+
+export function JournalCard({ entry }: JournalCardProps) {
   return (
-    <article className={`${styles.card} ${selected ? styles['card--selected'] : ''}`}>
+    <article className={styles.card}>
       <div className={styles.header}>
-        <TrackArtwork albumImageUrl={entry.track.albumImageUrl} compact title={entry.track.name} />
-        <div className={styles.meta}>
-          <div className={styles.dateRow}>
+        <div className={styles.identity}>
+          <span className={styles.avatar}>{entry.track.name.slice(0, 1).toUpperCase()}</span>
+          <div className={styles.identityCopy}>
+            <strong>{getHeadline(entry)}</strong>
             <span>{formatEntryDateLabel(entry.entryDate)}</span>
-            <span>{formatCreatedAtLabel(entry.createdAt)}</span>
           </div>
-          <strong className={styles.title}>{entry.track.name}</strong>
-          <div className={styles.subtitle}>{entry.track.artists.join(', ')}</div>
-          <span className={styles.mood}>{moodLabels[entry.mood]}</span>
         </div>
+        <span className={styles.mood}>{moodLabels[entry.mood]}</span>
       </div>
-      <p className={styles.note}>{entry.notePreview}</p>
-      <div className={styles.footer}>
-        <span className={styles.source}>{entry.source === 'demo' ? '데모 기록' : '내 기록'}</span>
-        {onSelect ? (
-          <ActionButton variant={selected ? 'ghost' : 'secondary'} onClick={onSelect}>
-            {selected ? '닫기' : actionLabel}
-          </ActionButton>
-        ) : null}
+
+      <TrackArtwork albumImageUrl={entry.track.albumImageUrl} title={entry.track.name} />
+
+      <div className={styles.body}>
+        <div className={styles.trackRow}>
+          <strong className={styles.title}>{entry.track.name}</strong>
+          <a
+            className={styles.spotifyLink}
+            href={entry.track.spotifyUrl}
+            rel="noreferrer"
+            target="_blank"
+          >
+            Spotify
+          </a>
+        </div>
+        <span className={styles.subtitle}>{entry.track.albumName}</span>
+        <p className={styles.note}>{entry.note ?? entry.notePreview}</p>
+        <div className={styles.footer}>
+          <span>{entry.track.artists.join(', ')}</span>
+          <span>{formatCreatedAtLabel(entry.createdAt)}</span>
+        </div>
       </div>
     </article>
   )

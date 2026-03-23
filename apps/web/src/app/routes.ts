@@ -1,17 +1,16 @@
 export const routePaths = {
   overview: '/',
-  capture: '/capture',
-  library: '/library',
+  profile: '/profile',
+  legacyLibrary: '/library',
 } as const
 
 export const internalRoutePaths = {
   authReturn: '/auth/return',
 } as const
 
-export type AppRoute = (typeof routePaths)[keyof typeof routePaths]
+export type AppRoute = typeof routePaths.overview | typeof routePaths.profile
 
 export const navItems: Array<{ path: AppRoute; label: string; description: string }> = [
-  { path: routePaths.overview, label: '개요', description: '앱 상태와 최근 기록 확인' },
-  { path: routePaths.capture, label: '기록하기', description: '오늘 들은 곡과 메모 작성' },
-  { path: routePaths.library, label: '라이브러리', description: '지난 기록 보기, 수정, 삭제' },
+  { path: routePaths.overview, label: '타임라인', description: '실제 기록 피드 보기' },
+  { path: routePaths.profile, label: '프로필', description: '내 정보와 최근 기록 확인' },
 ]

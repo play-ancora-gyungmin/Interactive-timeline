@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { navItems, routePaths } from '../../app/routes'
-import type { AppMode } from '../../app/layout-context'
+import { navItems } from '../../app/routes'
 import { formatTodayLabel } from '../../lib/format'
 import type { SpotifyAuthAvailability } from '../../lib/auth-flow'
 import { ActionButton } from '../ui/ActionButton'
@@ -10,7 +9,7 @@ import styles from './AppShell.module.css'
 
 type AppShellProps = {
   children: ReactNode
-  appMode: AppMode
+  isAuthenticated: boolean
   isSessionPending: boolean
   userName: string | null
   spotifyAuthAvailability: SpotifyAuthAvailability
@@ -21,7 +20,7 @@ type AppShellProps = {
 
 export function AppShell({
   children,
-  appMode,
+  isAuthenticated,
   isSessionPending,
   userName,
   spotifyAuthAvailability,
@@ -41,15 +40,15 @@ export function AppShell({
             <div className={styles.mark}>DM</div>
             <div className={styles.copy}>
               <span className={styles.eyebrow}>Daily Music Journal</span>
-              <strong>곡과 메모로 남기는 오늘의 기록</strong>
+              <strong>타임라인과 프로필만 남긴 단순한 기록 앱</strong>
             </div>
           </div>
 
           <div className={styles.actions}>
             <div className={styles.meta}>
               <span>{formatTodayLabel()}</span>
-              <span className={styles.modeChip}>
-                {appMode === 'authenticated' ? '실사용 모드' : '게스트 모드'}
+              <span className={styles.metaChip}>
+                {isAuthenticated ? '실제 기록 피드' : '빈 타임라인'}
               </span>
             </div>
             {isSessionPending ? (
@@ -57,15 +56,15 @@ export function AppShell({
             ) : userName ? (
               <>
                 <span className={styles.sessionChip}>Spotify · {userName}</span>
-                <ActionButton variant="secondary" onClick={onSignOut}>
+                <ActionButton onClick={onSignOut} variant="secondary">
                   로그아웃
                 </ActionButton>
               </>
             ) : (
               <ActionButton
                 disabled={!canStartSpotifySignIn}
-                variant="primary"
                 onClick={onSignIn}
+                variant="primary"
               >
                 {loginButtonLabel}
               </ActionButton>
@@ -73,10 +72,28 @@ export function AppShell({
           </div>
         </header>
 
+        <nav aria-label="주요 탐색" className={styles.nav}>
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              className={({ isActive }) =>
+                [styles.navLink, isActive ? styles['navLink--active'] : '']
+                  .filter(Boolean)
+                  .join(' ')
+              }
+              end={item.path === '/'}
+              to={item.path}
+            >
+              <span>{item.label}</span>
+              <small>{item.description}</small>
+            </NavLink>
+          ))}
+        </nav>
+
         {authFeedback ? <Notice tone="error">{authFeedback}</Notice> : null}
         {!userName && spotifyAuthAvailability === 'disabled' ? (
           <Notice tone="subtle">
-            서버에 Spotify 로그인 설정이 아직 없습니다. 지금은 게스트 모드로 홈과 라이브러리만
+            서버에 Spotify 로그인 설정이 아직 없습니다. 현재는 빈 타임라인과 프로필 레이아웃만
             확인할 수 있습니다.
           </Notice>
         ) : null}
@@ -86,43 +103,8 @@ export function AppShell({
           </Notice>
         ) : null}
 
-        <nav aria-label="주요 탐색" className={styles.desktopNav}>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              className={({ isActive }) =>
-                [styles.navLink, isActive ? styles['navLink--active'] : '']
-                  .filter(Boolean)
-                  .join(' ')
-              }
-              end={item.path === routePaths.overview}
-              to={item.path}
-            >
-              <span>{item.label}</span>
-              <small>{item.description}</small>
-            </NavLink>
-          ))}
-        </nav>
-
         <main className={styles.main}>{children}</main>
       </div>
-
-      <nav aria-label="모바일 주요 탐색" className={styles.mobileNav}>
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            className={({ isActive }) =>
-              [styles.mobileNavLink, isActive ? styles['mobileNavLink--active'] : '']
-                .filter(Boolean)
-                .join(' ')
-            }
-            end={item.path === routePaths.overview}
-            to={item.path}
-          >
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
     </div>
   )
 }
