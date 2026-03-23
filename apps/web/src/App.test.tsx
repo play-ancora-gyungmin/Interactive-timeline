@@ -82,8 +82,20 @@ describe('web app', () => {
   it('renders an empty guest timeline without demo content', async () => {
     renderAt('/')
 
-    expect(await screen.findByText('아직 표시할 타임라인이 없습니다.')).toBeTruthy()
+    expect(
+      await screen.findByText('오늘의 음악을 오래 남는 타임라인으로 기록해 보세요.'),
+    ).toBeTruthy()
     expect(screen.queryByText('Sunrise Cassette')).toBeNull()
+  })
+
+  it('gates the profile tab behind login for guests', async () => {
+    renderAt('/profile')
+
+    expect(
+      await screen.findByText('내 음악 취향이 쌓이는 프로필을 시작해 보세요'),
+    ).toBeTruthy()
+    expect(screen.queryByText('작성한 저널 수')).toBeNull()
+    expect(screen.queryByText('River Lights')).toBeNull()
   })
 
   it('disables Spotify login when the server auth provider is unavailable', async () => {
@@ -136,8 +148,9 @@ describe('web app', () => {
     renderAt('/')
 
     expect(await screen.findByText('River Lights')).toBeTruthy()
+    expect(screen.getByText('Yuna Park')).toBeTruthy()
     expect(screen.getByText('집중용 메모 미리보기')).toBeTruthy()
-    expect(screen.getByText('테스트 사용자')).toBeTruthy()
+    expect(screen.getAllByText('테스트 사용자').length).toBeGreaterThan(1)
   })
 
   it('creates a journal entry from the floating action button', async () => {
@@ -233,7 +246,9 @@ describe('web app', () => {
       expect(window.location.pathname).toBe('/profile')
     })
 
-    expect(await screen.findByRole('heading', { name: '프로필' })).toBeTruthy()
+    expect(
+      await screen.findByRole('heading', { name: '내 음악 취향이 쌓이는 프로필을 시작해 보세요' }),
+    ).toBeTruthy()
   })
 
   it('starts Spotify sign-in with an auth return callback that preserves the current location', async () => {

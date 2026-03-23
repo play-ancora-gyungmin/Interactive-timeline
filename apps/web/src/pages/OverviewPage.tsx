@@ -8,11 +8,15 @@ import { toJournalCardModel } from '../lib/journal'
 import styles from './OverviewPage.module.css'
 
 export function OverviewPage() {
-  const { isAuthenticated, spotifyAuthAvailability } = useAppLayoutContext()
+  const { isAuthenticated, spotifyAuthAvailability, userName } = useAppLayoutContext()
   const timelineQuery = useLibraryEntriesQuery(isAuthenticated)
   const timelineEntries =
     timelineQuery.data?.pages.flatMap((page) =>
-      page.items.map((entry) => toJournalCardModel(entry)),
+      page.items.map((entry) =>
+        toJournalCardModel(entry, {
+          authorName: userName,
+        }),
+      ),
     ) ?? []
 
   return (
@@ -42,8 +46,8 @@ export function OverviewPage() {
 
       {!isAuthenticated ? (
         <Surface className={styles.emptyState}>
-          <strong>아직 표시할 타임라인이 없습니다.</strong>
-          <p>Spotify로 로그인하면 데모 없이 실제 기록만 이 피드에 쌓입니다.</p>
+          <strong>오늘의 음악을 오래 남는 타임라인으로 기록해 보세요.</strong>
+          <p>오늘 들은 곡과 감정을 남기면 내 기록이 이 피드에 바로 쌓이기 시작합니다.</p>
         </Surface>
       ) : null}
 

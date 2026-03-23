@@ -86,10 +86,10 @@ export function CreateJournalPage() {
       <div className={styles.page}>
         <section className={styles.sheet}>
           <span className={styles.eyebrow}>New Journal</span>
-          <h1 className={styles.title}>로그인 후 새 기록을 만들 수 있습니다.</h1>
+          <h1 className={styles.title}>한 곡, 한 감정, 한 줄의 메모로 오늘을 저장하세요.</h1>
           <p className={styles.copy}>
-            곡 검색과 저널 저장은 Spotify 세션이 있어야 동작합니다. 로그인 후 바로 이 화면으로
-            돌아와서 기록을 이어서 작성할 수 있습니다.
+            Spotify로 로그인하면 곡을 검색하고 바로 기록해, 나만의 음악 일기를 타임라인으로
+            차곡차곡 쌓아갈 수 있습니다.
           </p>
 
           {spotifyAuthAvailability === 'disabled' ? (

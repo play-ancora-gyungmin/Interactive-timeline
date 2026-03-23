@@ -33,6 +33,7 @@ export type JournalEntryDetail = {
 
 export type JournalCardModel = {
   id: string
+  authorName: string | null
   entryDate: string
   mood: Mood
   notePreview: string
@@ -55,16 +56,20 @@ export const toJournalPreview = (entry: JournalEntryDetail): JournalPreview => (
 
 export const toJournalCardModel = (
   entry: JournalPreview | JournalEntryDetail,
-  source: EntrySource = 'live',
+  options: {
+    source?: EntrySource
+    authorName?: string | null
+  } = {},
 ): JournalCardModel => ({
   id: entry.id,
+  authorName: options.authorName ?? null,
   entryDate: entry.entryDate,
   mood: entry.mood,
   notePreview: 'notePreview' in entry ? entry.notePreview : entry.note.slice(0, NOTE_PREVIEW_MAX_LENGTH),
   note: 'note' in entry ? entry.note : null,
   track: entry.track,
   createdAt: entry.createdAt,
-  source,
+  source: options.source ?? 'live',
 })
 
 export const moodLabels: Record<Mood, string> = {

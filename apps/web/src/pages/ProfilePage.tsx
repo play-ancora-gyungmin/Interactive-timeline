@@ -19,27 +19,26 @@ export function ProfilePage() {
   } = useAppLayoutContext()
   const recentEntriesQuery = useRecentEntriesQuery(isAuthenticated)
   const recentEntries = (recentEntriesQuery.data?.items ?? []).map((entry) =>
-    toJournalCardModel(entry),
+    toJournalCardModel(entry, {
+      authorName: userName,
+    }),
   )
   const canStartSpotifySignIn = spotifyAuthAvailability === 'enabled'
   const signInLabel =
     spotifyAuthAvailability === 'checking' ? 'Spotify 상태 확인 중' : 'Spotify로 로그인'
 
-  return (
-    <div className={styles.page}>
-      <Surface className={styles.hero} tone="hero">
-        <div className={styles.avatar}>{getProfileInitial(userName)}</div>
-        <div className={styles.heroCopy}>
-          <span className={styles.eyebrow}>Profile</span>
-          <h1 className={styles.title}>
-            {isAuthenticated ? `${userName ?? '내'} 프로필` : '프로필'}
-          </h1>
-          <p className={styles.copy}>
-            {isAuthenticated
-              ? '최근에 남긴 음악 기록과 현재 세션 상태를 한 번에 확인합니다.'
-              : '라이브러리 탭은 프로필 페이지로 바꿨습니다. 로그인 후 내 기록만 보입니다.'}
-          </p>
-          {!isAuthenticated ? (
+  if (!isAuthenticated) {
+    return (
+      <div className={styles.page}>
+        <Surface className={styles.hero} tone="hero">
+          <div className={styles.avatar}>{getProfileInitial(userName)}</div>
+          <div className={styles.heroCopy}>
+            <span className={styles.eyebrow}>Profile</span>
+            <h1 className={styles.title}>내 음악 취향이 쌓이는 프로필을 시작해 보세요</h1>
+            <p className={styles.copy}>
+              로그인하면 내가 남긴 저널 수와 최근 기록이 한눈에 정리되는 개인 음악 아카이브가
+              열립니다.
+            </p>
             <ActionButton
               disabled={!canStartSpotifySignIn}
               onClick={onSignIn}
@@ -47,7 +46,20 @@ export function ProfilePage() {
             >
               {signInLabel}
             </ActionButton>
-          ) : null}
+          </div>
+        </Surface>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.page}>
+      <Surface className={styles.hero} tone="hero">
+        <div className={styles.avatar}>{getProfileInitial(userName)}</div>
+        <div className={styles.heroCopy}>
+          <span className={styles.eyebrow}>Profile</span>
+          <h1 className={styles.title}>{`${userName ?? '내'} 프로필`}</h1>
+          <p className={styles.copy}>최근에 남긴 음악 기록과 현재 세션 상태를 한 번에 확인합니다.</p>
         </div>
       </Surface>
 
@@ -60,13 +72,6 @@ export function ProfilePage() {
 
       {isAuthenticated && recentEntriesQuery.error ? (
         <Notice tone="error">프로필 기록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</Notice>
-      ) : null}
-
-      {!isAuthenticated ? (
-        <Surface className={styles.panel}>
-          <strong>로그인 후 프로필이 채워집니다.</strong>
-          <p>게스트 샘플 없이 실제 사용자 정보와 최근 카드만 표시합니다.</p>
-        </Surface>
       ) : null}
 
       {isAuthenticated && recentEntriesQuery.isPending ? (
